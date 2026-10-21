@@ -1,6 +1,6 @@
 # Grafika Komputerowa – Zadanie 1a: Prymitywy graficzne oraz kanwa
 
-**Status:** ⏳ do zrobienia
+**Status:** ✅ zrealizowane
 
 ## Treść zadania
 
@@ -18,17 +18,17 @@
 
 ## Checklista wymagań
 
-- [ ] Linia – własny algorytm rasteryzacji
-- [ ] Prostokąt
-- [ ] Okrąg – własny algorytm rasteryzacji
-- [ ] Tworzenie obiektu z pól tekstowych + przycisk
-- [ ] Tworzenie obiektu kliknięciami myszy
-- [ ] Zaznaczanie obiektu (kliknięcie)
-- [ ] Przesuwanie obiektu myszą (przeciąganie)
-- [ ] Zmiana kształtu/rozmiaru myszą (uchwyty w punktach charakterystycznych)
-- [ ] Edycja parametrów zaznaczonego obiektu w polach tekstowych
+- [x] Linia – własny algorytm rasteryzacji
+- [x] Prostokąt
+- [x] Okrąg – własny algorytm rasteryzacji
+- [x] Tworzenie obiektu z pól tekstowych + przycisk
+- [x] Tworzenie obiektu kliknięciami myszy
+- [x] Zaznaczanie obiektu (kliknięcie)
+- [x] Przesuwanie obiektu myszą (przeciąganie)
+- [x] Zmiana kształtu/rozmiaru myszą (uchwyty w punktach charakterystycznych)
+- [x] Edycja parametrów zaznaczonego obiektu w polach tekstowych
 
-## Analiza / wstępne decyzje (do potwierdzenia przed realizacją)
+## Analiza / decyzje
 
 - **Rasteryzacja bez Canvas API do kształtów** – piksele wpisujemy do
   `Uint8ClampedArray`, potem jeden `putImageData`. Nie używamy `ctx.lineTo`,
@@ -72,4 +72,31 @@
 
 ## Realizacja
 
-_(uzupełnić po wykonaniu)_
+| Element | Gdzie |
+|---------|-------|
+| Linia – Bresenham (całkowitoliczbowy, wszystkie oktanty) | `js/raster.js` – `drawLine` |
+| Okrąg – midpoint z symetrią 8-krotną | `js/raster.js` – `drawCircle` |
+| Prostokąt – 4 odcinki Bresenhama | `js/raster.js` – `drawRect` |
+| Grubość linii – kwadratowy „pędzel” w każdym punkcie | `js/raster.js` – `createPlotter` |
+| Model kształtów, uchwyty, trafienie myszą, kompozycja z obrazem | `js/shapes.js` |
+| Rysowanie kliknięciami / przeciągnięciem, zaznaczanie, przesuwanie, uchwyty | `js/drawingTool.js` |
+| Pola tekstowe: dodawanie nowego i edycja zaznaczonego | `js/shapeForm.js` |
+| Historia Cofnij obejmuje obraz i kształty, „Spłaszcz”, „Nowa kanwa” | `js/main.js`, `js/imageIO.js` |
+
+Obsługa:
+- **Narzędzie Linia / Prostokąt / Okrąg** – dwa kliknięcia (punkty
+  charakterystyczne) albo wciśnij–przeciągnij–puść; między kliknięciami
+  widać podgląd. Esc anuluje.
+- **Narzędzie Zaznacz** – klik w krawędź zaznacza kształt; przeciągnięcie
+  krawędzi przesuwa, przeciągnięcie uchwytu (kwadracik) zmienia kształt/rozmiar
+  (linia: końce, prostokąt: rogi – przeciwległy róg stoi w miejscu, okrąg:
+  4 punkty na obwodzie zmieniają promień). Delete usuwa, Esc odznacza.
+- **Pola tekstowe** – bez zaznaczenia: parametry nowego kształtu i „Dodaj”;
+  z zaznaczeniem: parametry obiektu, „Zastosuj zmiany” (lub Enter),
+  „Dodaj jako nowy” (kopia), „Nadaj bieżący styl” (kolor z panelu Kolor
+  + grubość), „Usuń”.
+- Współrzędne są ograniczone do ±20000 px, żeby wpisanie ogromnej liczby
+  nie zawiesiło pętli rysującej (kształty mogą wychodzić poza obraz –
+  piksele poza kanwą są pomijane).
+- Uchwyty są rysowane tylko na ekranie – zapis PNG zawiera obraz z kształtami
+  bez uchwytów.

@@ -88,5 +88,34 @@
     }, 'image/png');
   }
 
-  BioEditor.ImageIO = { loadImageData, drawImageData, saveCanvasAsPng };
+  /**
+   * Zapisuje ImageData jako PNG. Obraz trafia na pomocniczy (niewidoczny)
+   * canvas – dzięki temu zapisujemy dokładnie ten bufor, a nie to, co jest
+   * akurat na ekranie (np. bez uchwytów zaznaczenia).
+   *
+   * @param {ImageData} imageData
+   * @param {string} filename
+   */
+  function saveImageDataAsPng(imageData, filename) {
+    const canvas = document.createElement('canvas');
+    drawImageData(canvas, imageData);
+    saveCanvasAsPng(canvas, filename);
+  }
+
+  /**
+   * Tworzy pusty, biały obraz – do rysowania bez wczytywania pliku.
+   * new ImageData(w, h) ma wszystkie bajty = 0 (przezroczysta czerń),
+   * więc wypełniamy cały bufor wartością 255 (biały, nieprzezroczysty).
+   *
+   * @param {number} width
+   * @param {number} height
+   * @returns {ImageData}
+   */
+  function createBlankImage(width, height) {
+    const imageData = new ImageData(width, height);
+    imageData.data.fill(255);
+    return imageData;
+  }
+
+  BioEditor.ImageIO = { loadImageData, drawImageData, saveCanvasAsPng, saveImageDataAsPng, createBlankImage };
 })(window);

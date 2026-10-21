@@ -1,6 +1,6 @@
 # Grafika Komputerowa – Zadanie 1b: Przestrzenie barw
 
-**Status:** ⏳ do zrobienia
+**Status:** ✅ zrealizowane
 
 ## Treść zadania
 
@@ -15,12 +15,12 @@
 
 ## Checklista wymagań
 
-- [ ] Tryb wyboru RGB (mysz + pola tekstowe)
-- [ ] Tryb wyboru CMYK (mysz + pola tekstowe)
-- [ ] Podgląd wybranego koloru
-- [ ] Konwersja RGB → CMYK (własna implementacja)
-- [ ] Konwersja CMYK → RGB (własna implementacja)
-- [ ] Wyświetlanie wartości wejściowych i po konwersji
+- [x] Tryb wyboru RGB (mysz + pola tekstowe)
+- [x] Tryb wyboru CMYK (mysz + pola tekstowe)
+- [x] Podgląd wybranego koloru
+- [x] Konwersja RGB → CMYK (własna implementacja)
+- [x] Konwersja CMYK → RGB (własna implementacja)
+- [x] Wyświetlanie wartości wejściowych i po konwersji
 
 ## Wzory (zatwierdzone)
 
@@ -44,7 +44,7 @@ G = 255 · (1 − M) · (1 − K)
 B = 255 · (1 − Y) · (1 − K)
 ```
 
-## Analiza / wstępne decyzje (do potwierdzenia przed realizacją)
+## Analiza / decyzje
 
 - Wybór myszą:
   - RGB: suwaki R/G/B + ewentualnie pole wyboru 2D (np. jak w Photoshopie:
@@ -65,4 +65,20 @@ B = 255 · (1 − Y) · (1 − K)
 
 ## Realizacja
 
-_(uzupełnić po wykonaniu)_
+| Element | Gdzie |
+|---------|-------|
+| Wzory RGB ↔ CMYK (+ pomocniczo HSV, HEX) | `js/colorSpaces.js` |
+| Panel wyboru koloru | `js/colorPicker.js`, sekcja `#panel-color` w `index.html` |
+
+Obsługa:
+- Przełącznik **RGB / CMYK** wybiera model, w którym użytkownik podaje kolor.
+- **Myszą:** kwadrat nasycenie/jasność + pasek odcienia (rysowane ręcznie do
+  bufora pikseli) oraz suwaki składowych z gradientem pokazującym, jak zmieni
+  się kolor po przesunięciu danego suwaka.
+- **Z klawiatury:** pola liczbowe (RGB 0–255, CMYK 0–100% z dokładnością 0,1);
+  wartość spoza zakresu jest przycinana po zatwierdzeniu.
+- Pod suwakami: próbka koloru, wartości **wybrane** (w aktywnym modelu),
+  wartości **po konwersji** (w drugim modelu) i HEX.
+- Stan trzymany w obu modelach – wpisane CMYK nie „rozjeżdża się” przez
+  konwersję tam i z powrotem.
+- Wybrany kolor jest kolorem rysowania kształtów z zadania 1a.

@@ -13,6 +13,7 @@
     <h1>Edytor graficzny</h1>
     <div class="toolbar">
       <button id="btn-open" class="btn btn-primary" type="button">Otwórz obraz…</button>
+      <button id="btn-new" class="btn" type="button" title="Pusty biały obraz 800×600">Nowa kanwa</button>
       <button id="btn-save" class="btn" type="button" disabled>Zapisz jako PNG</button>
       <span class="sep"></span>
       <button id="btn-undo" class="btn" type="button" disabled>Cofnij</button>
@@ -73,6 +74,129 @@
         </label>
       </section>
 
+      <section class="panel" id="panel-color">
+        <h2>Kolor</h2>
+
+        <!-- Wybór myszą: kwadrat nasycenie/jasność + pasek odcienia (rysowane ręcznie) -->
+        <div class="picker-sv" data-role="sv-area">
+          <canvas data-role="sv" width="256" height="160"></canvas>
+          <span class="picker-marker" data-role="sv-marker"></span>
+        </div>
+        <div class="picker-hue" data-role="hue-area">
+          <canvas data-role="hue" width="360" height="1"></canvas>
+          <span class="picker-hue-marker" data-role="hue-marker"></span>
+        </div>
+
+        <div class="field">
+          <span class="label">Model barw</span>
+          <div class="segmented" data-role="mode">
+            <button type="button" data-value="rgb" class="active">RGB</button>
+            <button type="button" data-value="cmyk">CMYK</button>
+          </div>
+        </div>
+
+        <div class="channels" data-role="rgb-fields">
+          <div class="channel" data-channel="r">
+            <span>R</span>
+            <input class="color-range" type="range" min="0" max="255" step="1" aria-label="R – suwak">
+            <input class="input" type="number" min="0" max="255" step="1" aria-label="R">
+            <span class="unit"></span>
+          </div>
+          <div class="channel" data-channel="g">
+            <span>G</span>
+            <input class="color-range" type="range" min="0" max="255" step="1" aria-label="G – suwak">
+            <input class="input" type="number" min="0" max="255" step="1" aria-label="G">
+            <span class="unit"></span>
+          </div>
+          <div class="channel" data-channel="b">
+            <span>B</span>
+            <input class="color-range" type="range" min="0" max="255" step="1" aria-label="B – suwak">
+            <input class="input" type="number" min="0" max="255" step="1" aria-label="B">
+            <span class="unit"></span>
+          </div>
+        </div>
+
+        <div class="channels" data-role="cmyk-fields" hidden>
+          <div class="channel" data-channel="c">
+            <span>C</span>
+            <input class="color-range" type="range" min="0" max="100" step="0.1" aria-label="C – suwak">
+            <input class="input" type="number" min="0" max="100" step="0.1" aria-label="C (%)">
+            <span class="unit">%</span>
+          </div>
+          <div class="channel" data-channel="m">
+            <span>M</span>
+            <input class="color-range" type="range" min="0" max="100" step="0.1" aria-label="M – suwak">
+            <input class="input" type="number" min="0" max="100" step="0.1" aria-label="M (%)">
+            <span class="unit">%</span>
+          </div>
+          <div class="channel" data-channel="y">
+            <span>Y</span>
+            <input class="color-range" type="range" min="0" max="100" step="0.1" aria-label="Y – suwak">
+            <input class="input" type="number" min="0" max="100" step="0.1" aria-label="Y (%)">
+            <span class="unit">%</span>
+          </div>
+          <div class="channel" data-channel="k">
+            <span>K</span>
+            <input class="color-range" type="range" min="0" max="100" step="0.1" aria-label="K – suwak">
+            <input class="input" type="number" min="0" max="100" step="0.1" aria-label="K (%)">
+            <span class="unit">%</span>
+          </div>
+        </div>
+
+        <div class="color-summary">
+          <div class="swatch" data-role="swatch"></div>
+          <dl class="color-values">
+            <dt data-role="chosen-label">Wybrany</dt>
+            <dd data-role="chosen"></dd>
+            <dt data-role="converted-label">Po konwersji</dt>
+            <dd data-role="converted"></dd>
+            <dt>HEX</dt>
+            <dd data-role="hex"></dd>
+          </dl>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-shapes">
+        <h2>Kształty</h2>
+
+        <div class="field">
+          <span class="label">Narzędzie</span>
+          <div class="segmented" id="shape-tool">
+            <button type="button" data-value="select" class="active">Zaznacz</button>
+            <button type="button" data-value="line">Linia</button>
+            <button type="button" data-value="rect">Prostokąt</button>
+            <button type="button" data-value="circle">Okrąg</button>
+          </div>
+          <p class="hint" id="shape-tool-hint"></p>
+        </div>
+
+        <div class="field field-inline">
+          <label class="label" for="shape-width">Grubość linii (px)</label>
+          <input id="shape-width" class="input input-narrow" type="number" min="1" max="50" step="1" value="2">
+        </div>
+
+        <div class="shape-form" id="shape-form">
+          <h3 data-role="title">Parametry</h3>
+          <p class="hint" data-role="hint"></p>
+          <div data-role="body" hidden>
+            <div class="param-grid" data-role="fields"></div>
+            <div class="btn-row">
+              <button data-role="add" class="btn btn-primary" type="button">Dodaj</button>
+              <button data-role="apply" class="btn" type="button">Zastosuj zmiany</button>
+            </div>
+            <div class="btn-row">
+              <button data-role="restyle" class="btn" type="button" title="Nadaj zaznaczonemu kształtowi bieżący kolor i grubość">Nadaj bieżący styl</button>
+              <button data-role="delete" class="btn btn-danger" type="button">Usuń</button>
+            </div>
+          </div>
+        </div>
+
+        <button id="btn-flatten" class="btn btn-block" type="button" disabled
+                title="Wtapia kształty w obraz – potem nie da się ich edytować (można cofnąć)">
+          Spłaszcz kształty na obrazie
+        </button>
+      </section>
+
     </aside>
 
     <!-- Obszar roboczy z obrazem -->
@@ -94,7 +218,13 @@
   <script src="js/imageIO.js"></script>
   <script src="js/imageProcessing.js"></script>
   <script src="js/histogram.js"></script>
+  <script src="js/colorSpaces.js"></script>
+  <script src="js/raster.js"></script>
+  <script src="js/shapes.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/colorPicker.js"></script>
+  <script src="js/drawingTool.js"></script>
+  <script src="js/shapeForm.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

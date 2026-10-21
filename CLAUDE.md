@@ -55,7 +55,13 @@ css/style.css           – style; zmienne kolorów w :root
 js/imageIO.js           – wczytanie / wyświetlenie / zapis (BioEditor.ImageIO)
 js/imageProcessing.js   – algorytmy na ImageData (BioEditor.ImageProcessing)
 js/histogram.js         – liczenie i rysowanie histogramu (BioEditor.Histogram)
+js/colorSpaces.js       – konwersje RGB/CMYK/HSV/HEX (BioEditor.ColorSpaces)
+js/raster.js            – rasteryzacja: Bresenham, midpoint (BioEditor.Raster)
+js/shapes.js            – model kształtów, uchwyty, hit-test, kompozycja (BioEditor.Shapes)
 js/ui.js                – generyczne kontrolki DOM (BioEditor.UI)
+js/colorPicker.js       – panel wyboru koloru (BioEditor.ColorPicker)
+js/drawingTool.js       – mysz na kanwie: rysowanie/zaznaczanie (BioEditor.DrawingTool)
+js/shapeForm.js         – pola tekstowe parametrów kształtu (BioEditor.ShapeForm)
 js/main.js              – stan aplikacji, obsługa zdarzeń, „klej” (ładowany ostatni)
 zadania/                – treści zadań, status, notatki z realizacji
 ```
@@ -73,11 +79,19 @@ zadania/                – treści zadań, status, notatki z realizacji
   - są **czyste** – nie modyfikują wejściowego `ImageData`, zwracają nowy
     (na tym opiera się Cofnij / Przywróć oryginał w `main.js`),
   - przyjmują parametry jako obiekt opcji, np. `binarize(src, { channel, threshold })`.
+- Dokument = warstwa obrazu (`state.current`) + lista kształtów wektorowych
+  (`state.shapes`, obiekty niezmienne). Ekran i zapis PNG pokazują ich
+  złożenie (`Shapes.composite`). Operacje z biometrii działają na warstwie
+  obrazu. Stos Cofnij przechowuje pary `{ image, shapes }`.
+- Wyjątek od „czystości”: funkcje w `raster.js` rysują DO przekazanego bufora
+  (modyfikują go) – wywoływać je tylko na kopii roboczej.
+- Moduły bez DOM (`colorSpaces.js`, `raster.js`, `shapes.js`) eksportują do
+  `window` albo `globalThis`, więc można je załadować w Node przez `require`.
 - Kanały oznaczamy kluczami `'r' | 'g' | 'b' | 'avg'`; średnia to
   `((R + G + B) / 3) | 0` – ta sama definicja wszędzie.
 - Nowa funkcja w UI = nowa `<section class="panel">` w sidebarze, z użyciem
   istniejących klas (`.field`, `.label`, `.segmented`, `.btn`, `.btn-primary`,
-  `.btn-block`). Akcje przetwarzające obraz idą przez `setCurrent()` + `render()`
+  `.btn-block`, `.input`, `.hint`, `.btn-row`). Akcje przetwarzające obraz idą przez `commit()` + `render()`
   + `updateControls()` i wypisują czas operacji na pasku statusu.
 - Komentarze i JSDoc po polsku, z typami w JSDoc (`@param`, `@returns`).
 - Nazwy identyfikatorów po angielsku (camelCase), teksty UI po polsku.
@@ -86,6 +100,7 @@ zadania/                – treści zadań, status, notatki z realizacji
 
 - Uruchomienie: otworzyć `index.html` w przeglądarce (bez serwera).
 - Brak testów automatycznych i lintera. Weryfikacja ręczna w przeglądarce;
-  czyste funkcje z `imageProcessing.js` można dodatkowo sprawdzić w Node.
+  czyste funkcje (`imageProcessing.js`, `colorSpaces.js`, `raster.js`,
+  `shapes.js`) można dodatkowo sprawdzić w Node.
 - Chromium + Playwright są dostępne w środowisku chmurowym, jeśli trzeba
   zrobić zrzut ekranu lub sprawdzić działanie.
