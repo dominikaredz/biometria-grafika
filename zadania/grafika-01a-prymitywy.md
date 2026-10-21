@@ -52,13 +52,23 @@
   na buforze), `js/scene.js` (lista obiektów, hit-testing, uchwyty),
   `js/drawingTool.js` (obsługa myszy i paneli). Nowy panel w sidebarze.
 
-## Pytania otwarte
+## Ustalenia
 
-- Czy kanwa do rysowania ma być wspólna z obrazem wczytywanym w zadaniach
-  z biometrii (rysowanie po obrazie), czy osobna (pusta, np. 800×600)?
-- Czy zapis do pliku ma uwzględniać narysowane kształty?
-- Kolor obiektów – czy połączyć z selektorem kolorów z zadania 1b?
-- Prostokąt: osiowo wyrównany (wystarczy) czy dowolnie obracany?
+- **Rysujemy na wczytanym obrazie** (ta sama kanwa co w biometrii).
+  - Kształty to osobna warstwa wektorowa nad obrazem: obraz (`state.current`)
+    pozostaje nietknięty, a wyświetlany jest obraz złożony = kopia bufora
+    obrazu + zrasteryzowane kształty. Dzięki temu kształty da się dalej
+    zaznaczać i edytować.
+  - Operacje z biometrii (binaryzacja itd.) działają na warstwie obrazu;
+    kształty zostają nad nim.
+  - Przycisk „Spłaszcz” wtapia kształty w obraz (przez `setCurrent()`, więc
+    można to cofnąć). Zapis PNG zapisuje obraz złożony (z kształtami).
+  - Gdy obraz nie jest wczytany: przycisk „Nowa kanwa” tworzy pusty, biały
+    obraz (np. 800×600), żeby dało się rysować bez wczytywania pliku.
+- **Kolor kształtów** = aktywny kolor wybrany w selektorze z zadania 1b.
+  Nowy kształt dostaje bieżący kolor; zaznaczony kształt można przekolorować
+  przyciskiem „Użyj bieżącego koloru”. Do czasu realizacji 1b – domyślnie czarny.
+- **Prostokąt** osiowo wyrównany (brak wymogu obrotu w treści zadania).
 
 ## Realizacja
 

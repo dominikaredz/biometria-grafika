@@ -22,11 +22,9 @@
 - [ ] Konwersja CMYK → RGB (własna implementacja)
 - [ ] Wyświetlanie wartości wejściowych i po konwersji
 
-## Wzory (do weryfikacji z treścią zadania!)
+## Wzory (zatwierdzone)
 
-Treść zadania odwołuje się do „wzorów podanych w treści zadania” – nie zostały
-tu wklejone. Poniżej standardowe wzory; **przed realizacją sprawdzić, czy
-prowadzący nie podał innych** (np. wersji bez składowej K).
+Użytkowniczka zatwierdziła standardowe wzory poniżej.
 
 RGB → CMYK (R, G, B ∈ [0, 255], wynik ∈ [0, 1]):
 
@@ -46,9 +44,6 @@ G = 255 · (1 − M) · (1 − K)
 B = 255 · (1 − Y) · (1 − K)
 ```
 
-Wariant spotykany na wykładach z GK:
-`R = 255 · (1 − min(1, C·(1−K) + K))` itd. – do ustalenia.
-
 ## Analiza / wstępne decyzje (do potwierdzenia przed realizacją)
 
 - Wybór myszą:
@@ -61,12 +56,12 @@ Wariant spotykany na wykładach z GK:
 - Konwersje jako czyste funkcje w osobnym module, np. `js/colorSpaces.js`
   (`rgbToCmyk`, `cmykToRgb`) – bez DOM, łatwe do testowania w Node.
   UI w osobnym pliku, np. `js/colorPicker.js`, nowy panel w sidebarze.
-- Wybrany kolor może być potem użyty jako kolor rysowania prymitywów (zad. 1a).
-
-## Pytania otwarte
-
-- Dokładne wzory z treści zadania (patrz wyżej).
-- Czy potrzebny dodatkowo zapis HEX (#RRGGBB)?
+- **Wybrany kolor jest aktywnym kolorem rysowania** prymitywów z zadania 1a
+  (wspólny stan, np. `state.color = { r, g, b }`). Wewnętrznie kolor trzymamy
+  w RGB 0–255, bo w tym formacie zapisujemy piksele; CMYK jest widokiem
+  przeliczanym wzorami.
+- Dodatkowo wyświetlamy zapis HEX (#RRGGBB) – tani i przydatny przy
+  porównaniu z innymi programami.
 
 ## Realizacja
 
