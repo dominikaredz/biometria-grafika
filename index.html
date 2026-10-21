@@ -48,9 +48,15 @@
           <input id="threshold" type="range" min="0" max="255" value="128">
         </div>
 
-        <button id="btn-binarize" class="btn btn-primary btn-block" type="button" disabled>
-          Zastosuj binaryzację
-        </button>
+        <div class="btn-row">
+          <button id="btn-binarize" class="btn btn-primary" type="button" disabled>
+            Zastosuj próg
+          </button>
+          <button id="btn-otsu" class="btn" type="button" disabled
+                  title="Wyznacza próg automatycznie z histogramu wybranego kanału i binaryzuje">
+            Metoda Otsu
+          </button>
+        </div>
       </section>
 
       <section class="panel" id="panel-histogram">
@@ -72,6 +78,61 @@
           <input id="hist-log" type="checkbox">
           Skala logarytmiczna
         </label>
+      </section>
+
+      <section class="panel" id="panel-hist-ops">
+        <h2>Operacje na histogramie</h2>
+
+        <div class="field">
+          <span class="label">Kanały</span>
+          <div class="segmented" id="hist-ops-mode">
+            <button type="button" data-value="separate" class="active">Osobno R, G, B</button>
+            <button type="button" data-value="joint">Wspólnie</button>
+          </div>
+          <p class="hint">„Osobno” – mocniejszy efekt, ale barwy mogą się zmienić.
+            „Wspólnie” – jedno odwzorowanie dla R, G, B, barwy zmieniają się mniej.</p>
+        </div>
+
+        <div class="field">
+          <span class="label">Rozciąganie do zakresu</span>
+          <div class="range-inputs">
+            <label for="stretch-low">od</label>
+            <input id="stretch-low" class="input" type="number" min="0" max="255" step="1" value="0">
+            <label for="stretch-high">do</label>
+            <input id="stretch-high" class="input" type="number" min="0" max="255" step="1" value="255">
+          </div>
+          <p class="hint" id="image-range">Zakres w obrazie: –</p>
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-stretch" class="btn btn-primary" type="button" disabled>Rozciągnij</button>
+          <button id="btn-equalize" class="btn btn-primary" type="button" disabled>Wyrównaj</button>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-adjust">
+        <h2>Jasność i kontrast</h2>
+
+        <div class="field">
+          <label class="label" for="brightness">
+            Jasność: <output id="brightness-value">0</output>
+          </label>
+          <input id="brightness" type="range" min="-255" max="255" step="1" value="0" disabled>
+        </div>
+
+        <div class="field">
+          <label class="label" for="contrast">
+            Kontrast: <output id="contrast-value">0</output> %
+          </label>
+          <input id="contrast" type="range" min="-100" max="100" step="1" value="0" disabled>
+        </div>
+        <p class="hint">Suwaki pokazują podgląd na żywo; „Zastosuj” zapisuje zmianę.</p>
+
+        <div class="btn-row">
+          <button id="btn-adjust-apply" class="btn btn-primary" type="button" disabled>Zastosuj</button>
+          <button id="btn-adjust-cancel" class="btn" type="button" disabled>Wyzeruj</button>
+          <button id="btn-invert" class="btn" type="button" disabled>Negatyw</button>
+        </div>
       </section>
 
       <section class="panel" id="panel-color">

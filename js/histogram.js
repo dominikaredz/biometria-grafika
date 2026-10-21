@@ -133,4 +133,4 @@
   }
 
   BioEditor.Histogram = { compute, draw };
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);

@@ -233,6 +233,14 @@ input[type="range"] { width: 100%; }
 .btn-danger { color: #c92a2a; }
 .btn-danger:hover:not(:disabled) { background: #fff5f5; }
 
+.range-inputs {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
 /* ---------- Selektor koloru ---------- */
 
 .picker-sv,

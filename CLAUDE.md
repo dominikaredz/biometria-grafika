@@ -83,6 +83,11 @@ zadania/                – treści zadań, status, notatki z realizacji
   (`state.shapes`, obiekty niezmienne). Ekran i zapis PNG pokazują ich
   złożenie (`Shapes.composite`). Operacje z biometrii działają na warstwie
   obrazu. Stos Cofnij przechowuje pary `{ image, shapes }`.
+- Operacje punktowe (rozciąganie, wyrównanie, jasność…) budują tablice LUT
+  i wołają `ImageProcessing.applyLut` – jedna pętla po buforze.
+- Nowa operacja na obrazie w `main.js`: `applyOperation(src => ..., 'opis')`
+  (commit + render + czas na pasku statusu). Podgląd na żywo (suwaki) idzie
+  przez `state.preview` – nie trafia do historii, `commit()` go odrzuca.
 - Wyjątek od „czystości”: funkcje w `raster.js` rysują DO przekazanego bufora
   (modyfikują go) – wywoływać je tylko na kopii roboczej.
 - Moduły bez DOM (`colorSpaces.js`, `raster.js`, `shapes.js`) eksportują do
