@@ -11,7 +11,9 @@
  * modyfikują danych wejściowych (zwracają nowe obiekty), historia Cofnij
  * to po prostu stos par { image, shapes } – bez klonowania.
  *   - original  – obraz po wczytaniu (nigdy się nie zmienia),
- *   - undoStack – poprzednie stany (max MAX_UNDO).
+ *   - undoStack – poprzednie stany (max MAX_UNDO),
+ *   - preview   – niezatwierdzony podgląd (suwaki jasności/kontrastu);
+ *                 gdy jest ustawiony, wyświetlamy go zamiast current.
  */
 (function () {
   'use strict';
@@ -29,6 +31,7 @@
     current: null,
     shapes: [],
     undoStack: [],
+    preview: null,
     histogram: null, // zbuforowany wynik Histogram.compute dla wyświetlanego obrazu
   };
 
@@ -42,6 +45,19 @@
     btnUndo: $('btn-undo'),
     btnReset: $('btn-reset'),
     btnBinarize: $('btn-binarize'),
+    btnOtsu: $('btn-otsu'),
+    btnStretch: $('btn-stretch'),
+    btnEqualize: $('btn-equalize'),
+    stretchLow: $('stretch-low'),
+    stretchHigh: $('stretch-high'),
+    imageRange: $('image-range'),
+    brightness: $('brightness'),
+    brightnessValue: $('brightness-value'),
+    contrast: $('contrast'),
+    contrastValue: $('contrast-value'),
+    btnAdjustApply: $('btn-adjust-apply'),
+    btnAdjustCancel: $('btn-adjust-cancel'),
+    btnInvert: $('btn-invert'),
     btnFlatten: $('btn-flatten'),
     threshold: $('threshold'),
     thresholdValue: $('threshold-value'),
@@ -64,6 +80,7 @@
 
   const binChannel = UI.createSegmented($('bin-channel'));
   const histView = UI.createSegmented($('hist-channel'), redrawHistogram);
+  const histOpsMode = UI.createSegmented($('hist-ops-mode'));
   const colorPicker = ColorPicker.create($('panel-color'));
 
   /** Styl nowych kształtów: kolor z selektora + grubość z pola. */
@@ -120,10 +137,11 @@
    */
   function render({ histogram = true } = {}) {
     if (!state.current) return;
-    const img = Shapes.composite(state.current, drawing.getVisibleShapes());
+    const img = Shapes.composite(state.preview || state.current, drawing.getVisibleShapes());
     if (histogram) {
       state.histogram = Histogram.compute(img);
       redrawHistogram();
+      showImageRange();
     }
     drawing.drawOverlay(img);
     ImageIO.drawImageData(el.imageCanvas, img);
@@ -135,19 +153,36 @@
    * łączy je w jedno rysowanie na klatkę.
    */
   let renderQueued = false;
-  function scheduleRender() {
+  let renderHistogramQueued = false;
+  function scheduleRender(withHistogram = false) {
+    renderHistogramQueued = renderHistogramQueued || withHistogram;
     if (renderQueued) return;
     renderQueued = true;
     requestAnimationFrame(() => {
+      const histogram = renderHistogramQueued;
       renderQueued = false;
-      render({ histogram: false });
+      renderHistogramQueued = false;
+      render({ histogram });
     });
+  }
+
+  /** Wypisuje zakres wartości (min–max) kanałów wyświetlanego obrazu. */
+  function showImageRange() {
+    const parts = ['r', 'g', 'b'].map((k) => {
+      const range = ImageProcessing.histogramRange(state.histogram[k]);
+      return range ? `${k.toUpperCase()} ${range.min}–${range.max}` : '';
+    });
+    el.imageRange.textContent = 'Zakres w obrazie: ' + parts.join(' · ');
   }
 
   /** Włącza/wyłącza przyciski zależnie od stanu aplikacji. */
   function updateControls() {
     const hasImage = state.current !== null;
-    UI.setEnabled([el.btnSave, el.btnBinarize], hasImage);
+    UI.setEnabled([
+      el.btnSave, el.btnBinarize, el.btnOtsu, el.btnStretch, el.btnEqualize,
+      el.btnInvert, el.brightness, el.contrast,
+    ], hasImage);
+    UI.setEnabled([el.btnAdjustApply, el.btnAdjustCancel], state.preview !== null);
     UI.setEnabled([el.btnUndo], state.undoStack.length > 0);
     UI.setEnabled([el.btnReset], hasImage && (state.current !== state.original || state.shapes.length > 0));
     UI.setEnabled([el.btnFlatten], state.shapes.length > 0);
@@ -179,8 +214,18 @@
     return `${state.fileName} • ${width}×${height} px${shapes}` + (extra ? ' • ' + extra : '');
   }
 
+  /** Odrzuca niezatwierdzony podgląd jasności/kontrastu i zeruje suwaki. */
+  function clearPreview() {
+    state.preview = null;
+    el.brightness.value = '0';
+    el.contrast.value = '0';
+    el.brightnessValue.textContent = '0';
+    el.contrastValue.textContent = '0';
+  }
+
   /** Zapisuje nowy stan dokumentu, odkładając poprzedni na stos Cofnij. */
   function commit(image, shapes = state.shapes) {
+    clearPreview();
     state.undoStack.push({ image: state.current, shapes: state.shapes });
     if (state.undoStack.length > MAX_UNDO) state.undoStack.shift();
     state.current = image;
@@ -211,6 +256,7 @@
     state.current = imageData;
     state.shapes = [];
     state.undoStack = [];
+    clearPreview();
     drawing.cancel();
     drawing.select(-1);
     render();
@@ -240,8 +286,8 @@
   });
 
   el.btnSave.addEventListener('click', () => {
-    // Zapisujemy obraz z kształtami, ale bez uchwytów zaznaczenia
-    const img = Shapes.composite(state.current, state.shapes);
+    // Zapisujemy obraz z kształtami (i podglądem), ale bez uchwytów zaznaczenia
+    const img = Shapes.composite(state.preview || state.current, state.shapes);
     ImageIO.saveImageDataAsPng(img, state.fileName + '_edit.png');
   });
 
@@ -249,20 +295,104 @@
     el.thresholdValue.textContent = el.threshold.value;
   });
 
-  el.btnBinarize.addEventListener('click', () => {
+  /**
+   * Wykonuje operację na warstwie obrazu (kształty zostają nad nim),
+   * zapisuje wynik w historii i wypisuje czas na pasku statusu.
+   *
+   * @param {(src: ImageData) => ImageData} operation
+   * @param {string | (() => string)} label opis do paska statusu
+   */
+  function applyOperation(operation, label) {
     const t0 = performance.now();
-
-    // Binaryzacja działa na warstwie obrazu – kształty zostają nad nim
-    const result = ImageProcessing.binarize(state.current, {
-      channel: binChannel.value,
-      threshold: Number(el.threshold.value),
-    });
+    const result = operation(state.current);
     commit(result);
     render();
     updateControls();
-
     const ms = (performance.now() - t0).toFixed(1);
-    UI.setStatus(el.status, describe(`binaryzacja (${binChannel.value}, próg ${el.threshold.value}): ${ms} ms`));
+    UI.setStatus(el.status, describe(`${typeof label === 'function' ? label() : label}: ${ms} ms`));
+  }
+
+  /** Odczytuje liczbę 0–255 z pola; przy błędzie podświetla pole i zwraca null. */
+  function readLevel(input) {
+    const v = Number(input.value);
+    const ok = input.value.trim() !== '' && Number.isFinite(v) && v >= 0 && v <= 255;
+    input.classList.toggle('invalid', !ok);
+    return ok ? Math.round(v) : null;
+  }
+
+  el.btnBinarize.addEventListener('click', () => {
+    const channel = binChannel.value;
+    const threshold = Number(el.threshold.value);
+    applyOperation(
+      (src) => ImageProcessing.binarize(src, { channel, threshold }),
+      `binaryzacja (${channel}, próg ${threshold})`
+    );
+  });
+
+  el.btnOtsu.addEventListener('click', () => {
+    const channel = binChannel.value;
+    let threshold;
+    applyOperation((src) => {
+      // Histogram liczymy z warstwy obrazu (bez kształtów), tak jak binaryzację
+      threshold = ImageProcessing.otsuThreshold(Histogram.compute(src)[channel]);
+      return ImageProcessing.binarize(src, { channel, threshold });
+    }, () => `binaryzacja Otsu (${channel}, wyznaczony próg ${threshold})`);
+    el.threshold.value = String(threshold);
+    el.thresholdValue.textContent = String(threshold);
+  });
+
+  el.btnStretch.addEventListener('click', () => {
+    const low = readLevel(el.stretchLow);
+    const high = readLevel(el.stretchHigh);
+    if (low === null || high === null) return;
+    const mode = histOpsMode.value;
+    applyOperation(
+      (src) => ImageProcessing.stretchHistogram(src, { low, high, mode }),
+      `rozciąganie histogramu do ${low}–${high} (${mode === 'joint' ? 'wspólnie' : 'kanały osobno'})`
+    );
+  });
+
+  el.btnEqualize.addEventListener('click', () => {
+    const mode = histOpsMode.value;
+    applyOperation(
+      (src) => ImageProcessing.equalizeHistogram(src, { mode }),
+      `wyrównanie histogramu (${mode === 'joint' ? 'wspólnie' : 'kanały osobno'})`
+    );
+  });
+
+  el.btnInvert.addEventListener('click', () => {
+    applyOperation(ImageProcessing.invert, 'negatyw');
+  });
+
+  /** Podgląd na żywo: liczymy obraz z suwaków, ale nie zapisujemy go w historii. */
+  function updateAdjustPreview() {
+    const brightness = Number(el.brightness.value);
+    const contrast = Number(el.contrast.value);
+    el.brightnessValue.textContent = String(brightness);
+    el.contrastValue.textContent = String(contrast);
+    state.preview = brightness === 0 && contrast === 0
+      ? null
+      : ImageProcessing.adjustBrightnessContrast(state.current, { brightness, contrast });
+    scheduleRender(true);
+    updateControls();
+    UI.setStatus(el.status, describe(state.preview
+      ? `podgląd: jasność ${brightness}, kontrast ${contrast}% (niezatwierdzone)` : ''));
+  }
+
+  el.brightness.addEventListener('input', updateAdjustPreview);
+  el.contrast.addEventListener('input', updateAdjustPreview);
+
+  el.btnAdjustApply.addEventListener('click', () => {
+    if (!state.preview) return;
+    const label = `jasność ${el.brightness.value}, kontrast ${el.contrast.value}%`;
+    const preview = state.preview;
+    applyOperation(() => preview, label);
+  });
+
+  el.btnAdjustCancel.addEventListener('click', () => {
+    clearPreview();
+    render();
+    updateControls();
   });
 
   el.btnFlatten.addEventListener('click', () => {
@@ -279,6 +409,7 @@
     const prev = state.undoStack.pop();
     state.current = prev.image;
     state.shapes = prev.shapes;
+    clearPreview();
     drawing.cancel();
     drawing.select(-1);
     render();
