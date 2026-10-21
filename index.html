@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edytor graficzny – Biometria</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Pasek górny: operacje na pliku i historia zmian -->
+  <header class="topbar">
+    <h1>Edytor graficzny</h1>
+    <div class="toolbar">
+      <button id="btn-open" class="btn btn-primary" type="button">Otwórz obraz…</button>
+      <button id="btn-save" class="btn" type="button" disabled>Zapisz jako PNG</button>
+      <span class="sep"></span>
+      <button id="btn-undo" class="btn" type="button" disabled>Cofnij</button>
+      <button id="btn-reset" class="btn" type="button" disabled>Przywróć oryginał</button>
+    </div>
+    <!-- Ukryty input: klikamy go programowo z przycisku "Otwórz obraz" -->
+    <input id="file-input" type="file" accept="image/*" hidden>
+  </header>
+
+  <div class="layout">
+
+    <!-- Panel boczny: narzędzia. Kolejne zadania = kolejne <section class="panel"> -->
+    <aside class="sidebar">
+
+      <section class="panel" id="panel-binarization">
+        <h2>Binaryzacja progowa</h2>
+
+        <div class="field">
+          <span class="label">Kanał</span>
+          <div class="segmented" id="bin-channel">
+            <button type="button" data-value="r" class="active">R</button>
+            <button type="button" data-value="g">G</button>
+            <button type="button" data-value="b">B</button>
+            <button type="button" data-value="avg">Średnia</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label" for="threshold">
+            Próg: <output id="threshold-value">128</output>
+          </label>
+          <input id="threshold" type="range" min="0" max="255" value="128">
+        </div>
+
+        <button id="btn-binarize" class="btn btn-primary btn-block" type="button" disabled>
+          Zastosuj binaryzację
+        </button>
+      </section>
+
+      <section class="panel" id="panel-histogram">
+        <h2>Histogram</h2>
+
+        <div class="field">
+          <div class="segmented" id="hist-channel">
+            <button type="button" data-value="r">R</button>
+            <button type="button" data-value="g">G</button>
+            <button type="button" data-value="b">B</button>
+            <button type="button" data-value="avg" class="active">Średnia</button>
+            <button type="button" data-value="all">Wszystkie</button>
+          </div>
+        </div>
+
+        <canvas id="histogram" width="320" height="200"></canvas>
+
+        <label class="checkbox">
+          <input id="hist-log" type="checkbox">
+          Skala logarytmiczna
+        </label>
+      </section>
+
+    </aside>
+
+    <!-- Obszar roboczy z obrazem -->
+    <main class="workspace">
+      <div class="canvas-wrap">
+        <canvas id="image-canvas" hidden></canvas>
+        <p id="placeholder" class="placeholder">Otwórz obraz, aby zacząć pracę.</p>
+      </div>
+      <footer id="status" class="statusbar">Brak wczytanego obrazu.</footer>
+    </main>
+
+  </div>
+
+  <!--
+    Skrypty ładowane klasycznie (nie jako moduły ES), żeby aplikacja działała
+    po zwykłym otwarciu index.html z dysku (file://). Moduły ES są tam blokowane
+    przez CORS. Kolejność ma znaczenie: najpierw moduły, na końcu main.js.
+  -->
+  <script src="js/imageIO.js"></script>
+  <script src="js/imageProcessing.js"></script>
+  <script src="js/histogram.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
