@@ -1,0 +1,84 @@
+# Grafika Komputerowa – Zadanie 1b: Przestrzenie barw
+
+**Status:** ✅ zrealizowane
+
+## Treść zadania
+
+- Dwie możliwości wyboru koloru przez użytkownika: **RGB oraz CMYK**
+  (narzędzia do wyboru koloru mogą być wzorowane na popularnych programach graficznych).
+- Wybór koloru może odbywać się zarówno za pomocą **myszy**, jak i poprzez
+  wprowadzenie poszczególnych wartości w **pola tekstowe**.
+- Wybrany kolor powinien zostać **zaprezentowany** oraz **przekonwertowany na
+  drugi format**, tzn. na CMYK przy wyborze RGB oraz na RGB przy wyborze CMYK –
+  przy użyciu wzorów podanych w treści zadania.
+- Wartości wybrane przez użytkownika oraz po konwersji powinny zostać wyświetlone.
+
+## Checklista wymagań
+
+- [x] Tryb wyboru RGB (mysz + pola tekstowe)
+- [x] Tryb wyboru CMYK (mysz + pola tekstowe)
+- [x] Podgląd wybranego koloru
+- [x] Konwersja RGB → CMYK (własna implementacja)
+- [x] Konwersja CMYK → RGB (własna implementacja)
+- [x] Wyświetlanie wartości wejściowych i po konwersji
+
+## Wzory (zatwierdzone)
+
+Użytkowniczka zatwierdziła standardowe wzory poniżej.
+
+RGB → CMYK (R, G, B ∈ [0, 255], wynik ∈ [0, 1]):
+
+```
+r = R/255, g = G/255, b = B/255
+K = 1 − max(r, g, b)
+C = (1 − r − K) / (1 − K)
+M = (1 − g − K) / (1 − K)
+Y = (1 − b − K) / (1 − K)       // gdy K = 1 (czerń): C = M = Y = 0
+```
+
+CMYK → RGB:
+
+```
+R = 255 · (1 − C) · (1 − K)
+G = 255 · (1 − M) · (1 − K)
+B = 255 · (1 − Y) · (1 − K)
+```
+
+## Analiza / decyzje
+
+- Wybór myszą:
+  - RGB: suwaki R/G/B + ewentualnie pole wyboru 2D (np. jak w Photoshopie:
+    kwadrat nasycenie/jasność + pasek odcienia) rysowane **ręcznie** na
+    Canvas przez wypełnianie bufora pikseli,
+  - CMYK: suwaki C/M/Y/K (0–100%) z gradientem podglądu na tle suwaka.
+- Pola tekstowe zsynchronizowane dwukierunkowo z suwakami; walidacja zakresów
+  (RGB 0–255, CMYK 0–100%).
+- Konwersje jako czyste funkcje w osobnym module, np. `js/colorSpaces.js`
+  (`rgbToCmyk`, `cmykToRgb`) – bez DOM, łatwe do testowania w Node.
+  UI w osobnym pliku, np. `js/colorPicker.js`, nowy panel w sidebarze.
+- **Wybrany kolor jest aktywnym kolorem rysowania** prymitywów z zadania 1a
+  (wspólny stan, np. `state.color = { r, g, b }`). Wewnętrznie kolor trzymamy
+  w RGB 0–255, bo w tym formacie zapisujemy piksele; CMYK jest widokiem
+  przeliczanym wzorami.
+- Dodatkowo wyświetlamy zapis HEX (#RRGGBB) – tani i przydatny przy
+  porównaniu z innymi programami.
+
+## Realizacja
+
+| Element | Gdzie |
+|---------|-------|
+| Wzory RGB ↔ CMYK (+ pomocniczo HSV, HEX) | `js/colorSpaces.js` |
+| Panel wyboru koloru | `js/colorPicker.js`, sekcja `#panel-color` w `index.html` |
+
+Obsługa:
+- Przełącznik **RGB / CMYK** wybiera model, w którym użytkownik podaje kolor.
+- **Myszą:** kwadrat nasycenie/jasność + pasek odcienia (rysowane ręcznie do
+  bufora pikseli) oraz suwaki składowych z gradientem pokazującym, jak zmieni
+  się kolor po przesunięciu danego suwaka.
+- **Z klawiatury:** pola liczbowe (RGB 0–255, CMYK 0–100% z dokładnością 0,1);
+  wartość spoza zakresu jest przycinana po zatwierdzeniu.
+- Pod suwakami: próbka koloru, wartości **wybrane** (w aktywnym modelu),
+  wartości **po konwersji** (w drugim modelu) i HEX.
+- Stan trzymany w obu modelach – wpisane CMYK nie „rozjeżdża się” przez
+  konwersję tam i z powrotem.
+- Wybrany kolor jest kolorem rysowania kształtów z zadania 1a.
