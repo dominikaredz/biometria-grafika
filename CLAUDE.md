@@ -12,6 +12,7 @@ Projekt zostanie później połączony z projektem drugiej osoby, która pisze w
 Treści zadań i ich status: folder [`zadania/`](zadania/README.md).
 Przed realizacją zadania przeczytaj jego plik i zaktualizuj w nim status
 oraz sekcję „Realizacja” po skończeniu.
+Po zmianach w plikach JS zaktualizuj też `docs/pliki-js.md` i `docs/przewodnik-po-kodzie.md`.
 
 ## Styl pracy
 
@@ -64,6 +65,7 @@ js/drawingTool.js       – mysz na kanwie: rysowanie/zaznaczanie (BioEditor.Dra
 js/shapeForm.js         – pola tekstowe parametrów kształtu (BioEditor.ShapeForm)
 js/main.js              – stan aplikacji, obsługa zdarzeń, „klej” (ładowany ostatni)
 zadania/                – treści zadań, status, notatki z realizacji
+docs/                   – dokumentacja kodu (pliki-js.md – skrót, przewodnik-po-kodzie.md – szczegóły)
 ```
 
 ### Konwencje modułów
