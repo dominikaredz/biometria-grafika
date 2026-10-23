@@ -19,7 +19,7 @@
   'use strict';
 
   const {
-    ImageIO, ImageProcessing, Histogram, Shapes, UI, ColorPicker, DrawingTool, ShapeForm,
+    ImageIO, ImageProcessing, Histogram, Shapes, UI, ColorPicker, DrawingTool, ShapeForm, ColorSpaces,
   } = window.BioEditor;
 
   const MAX_UNDO = 30;
@@ -81,7 +81,17 @@
   const binChannel = UI.createSegmented($('bin-channel'));
   const histView = UI.createSegmented($('hist-channel'), redrawHistogram);
   const histOpsMode = UI.createSegmented($('hist-ops-mode'));
-  const colorPicker = ColorPicker.create($('panel-color'));
+  const tabs = UI.createTabs($('tool-tabs'), document.querySelector('.sidebar'), {
+    storageKey: 'bioEditor.tab',
+  });
+  const colorPicker = ColorPicker.create($('panel-color'), { onChange: showDrawingColor });
+
+  /** Próbka bieżącego koloru w panelu Kształty (kliknięcie otwiera zakładkę Kolor). */
+  function showDrawingColor({ r, g, b }) {
+    $('shape-color-swatch').style.background = `rgb(${r}, ${g}, ${b})`;
+    $('shape-color-hex').textContent = ColorSpaces.rgbToHex(r, g, b);
+  }
+  $('shape-color').addEventListener('click', () => tabs.select('color'));
 
   /** Styl nowych kształtów: kolor z selektora + grubość z pola. */
   function currentStyle() {
