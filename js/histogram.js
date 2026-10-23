@@ -11,11 +11,33 @@
   const BioEditor = (global.BioEditor = global.BioEditor || {});
 
   const CHANNELS = {
-    r:   { label: 'R',       color: '#e53935' },
-    g:   { label: 'G',       color: '#43a047' },
-    b:   { label: 'B',       color: '#1e88e5' },
-    avg: { label: 'Średnia', color: '#495057' },
+    r:   { label: 'R',       color: '#ef5350' },
+    g:   { label: 'G',       color: '#66bb6a' },
+    b:   { label: 'B',       color: '#42a5f5' },
+    avg: { label: 'Średnia', color: '#ced4da' },
   };
+
+  /** Kolory tła, osi i opisów – domyślne (ciemny motyw), nadpisywane zmiennymi CSS. */
+  const THEME_DEFAULTS = {
+    '--chart-bg': '#15181d',
+    '--chart-axis': '#4b5563',
+    '--chart-text': '#9aa3af',
+    '--chart-avg': '#ced4da',
+  };
+
+  /**
+   * Odczytuje kolory wykresu ze zmiennych CSS (np. --chart-bg w style.css).
+   * Dzięki temu zmiana motywu wymaga tylko zmiany CSS, a nie kodu JS.
+   * getComputedStyle zwraca końcowe style elementu, także zmienne z :root.
+   */
+  function readTheme(canvas) {
+    const style = getComputedStyle(canvas);
+    const theme = {};
+    for (const name in THEME_DEFAULTS) {
+      theme[name] = style.getPropertyValue(name).trim() || THEME_DEFAULTS[name];
+    }
+    return theme;
+  }
 
   // Marginesy wykresu (miejsce na opisy osi)
   const PAD = { left: 8, right: 8, top: 8, bottom: 22 };
@@ -61,9 +83,10 @@
     const plotW = W - PAD.left - PAD.right;
     const plotH = H - PAD.top - PAD.bottom;
     const baseY = plotY + plotH; // linia osi X
+    const theme = readTheme(canvas);
 
     // Tło
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = theme['--chart-bg'];
     ctx.fillRect(0, 0, W, H);
 
     const binW = plotW / 256; // szerokość jednego słupka (ok. 1 px)
@@ -90,7 +113,7 @@
       // Przy nakładaniu trzech kanałów używamy półprzezroczystości
       ctx.globalAlpha = keys.length > 1 ? 0.55 : 1;
       for (const k of keys) {
-        ctx.fillStyle = CHANNELS[k].color;
+        ctx.fillStyle = k === 'avg' ? theme['--chart-avg'] : CHANNELS[k].color;
         for (let i = 0; i < 256; i++) {
           const h = (scale(hist[k][i]) / max) * plotH;
           if (h <= 0) continue;
@@ -103,7 +126,7 @@
       ctx.globalAlpha = 1;
 
       // Informacja o skali pionowej
-      ctx.fillStyle = '#6c757d';
+      ctx.fillStyle = theme['--chart-text'];
       ctx.font = '10px system-ui, sans-serif';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
@@ -111,14 +134,14 @@
     }
 
     // Oś X i podziałka
-    ctx.strokeStyle = '#adb5bd';
+    ctx.strokeStyle = theme['--chart-axis'];
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(plotX, baseY + 0.5);
     ctx.lineTo(plotX + plotW, baseY + 0.5);
     ctx.stroke();
 
-    ctx.fillStyle = '#6c757d';
+    ctx.fillStyle = theme['--chart-text'];
     ctx.font = '10px system-ui, sans-serif';
     ctx.textBaseline = 'top';
     for (const v of [0, 64, 128, 192, 255]) {

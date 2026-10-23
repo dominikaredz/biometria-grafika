@@ -37,6 +37,11 @@ Aplikacja działa w przeglądarce i składa się z trzech rodzajów plików:
 | CSS | `css/style.css` | **Wystrój** – kolory, odstępy, zaokrąglenia, rozmiary. |
 | JavaScript | `js/*.js` | **Instalacje** – co się dzieje po kliknięciu, jak liczone są piksele. |
 
+Układ ekranu: u góry pasek z operacjami na pliku i historią, po lewej
+pionowy pasek **zakładek** (Progowanie, Histogram, Korekta, Kolor, Kształty),
+obok panel wybranej zakładki z **histogramem przypiętym na dole**, a w środku
+obraz. Motyw jest ciemny.
+
 Przeglądarka otwiera `index.html`, rysuje elementy strony, nakłada style
 z CSS, a na końcu wczytuje i uruchamia pliki JavaScript (w kolejności
 podanej na dole `index.html`).
@@ -500,10 +505,19 @@ Moduł: `BioEditor.Histogram`. **Histogram** to 256 liczników: `hist[v]` mówi,
 ile pikseli ma wartość `v`. Na wykresie: oś pozioma to wartości 0–255,
 wysokość słupka to liczba pikseli.
 
-#### `CHANNELS` i `PAD` (stałe)
+#### `CHANNELS`, `THEME_DEFAULTS` i `PAD` (stałe)
 
 `CHANNELS` – etykiety i kolory słupków (R czerwony, G zielony, B niebieski,
-średnia szara). `PAD` – marginesy wykresu (miejsce na podpisy osi).
+średnia jasnoszara). `THEME_DEFAULTS` – zapasowe kolory tła, osi i opisów
+wykresu. `PAD` – marginesy wykresu (miejsce na podpisy osi).
+
+#### `readTheme(canvas)`
+
+Odczytuje kolory wykresu ze zmiennych CSS (`--chart-bg`, `--chart-axis`,
+`--chart-text`, `--chart-avg` w `css/style.css`) przez `getComputedStyle` –
+funkcję przeglądarki, która zwraca końcowe style elementu. Gdy zmiennej
+nie ma, bierze wartość z `THEME_DEFAULTS`. Dzięki temu zmiana motywu
+(np. z ciemnego na jasny) to tylko zmiana w CSS.
 
 #### `compute(imageData)`
 
@@ -523,7 +537,7 @@ wysokość słupka to liczba pikseli.
   widok (`'r'`, `'g'`, `'b'`, `'avg'` lub `'all'`) i czy skala logarytmiczna.
 - **Wyjście:** nic – rysuje wykres.
 - **Jak działa:**
-  1. Zamalowuje tło na biało.
+  1. Odczytuje kolory motywu (`readTheme`) i zamalowuje tło.
   2. Wybiera kanały do narysowania (dla „Wszystkie” – R, G i B naraz,
      półprzezroczyste, żeby było widać nakładanie).
   3. Szuka największego licznika – on wyznacza pełną wysokość wykresu.
@@ -811,6 +825,20 @@ jest dokładnie jeden (np. R | G | B | Średnia).
 - Wartość przycisku pochodzi z atrybutu HTML `data-value`.
 - Zwraca obiekt z polem `value` – zawsze aktualnie wybrana wartość.
 
+#### `createTabs(tablist, root, { storageKey, onChange })`
+
+Obsługuje **zakładki narzędzi** (pionowy pasek po lewej).
+- Przyciski mają atrybut `data-tab="nazwa"`, a panele `data-tab-panel="nazwa"`.
+- Kliknięcie zakładki: przycisk dostaje klasę `active`, widoczny zostaje tylko
+  panel o tej samej nazwie (pozostałe dostają atrybut `hidden`).
+- `storageKey` – pod tą nazwą wybór jest zapisywany w `localStorage`
+  (pamięć przeglądarki, która przetrwa odświeżenie strony). Po ponownym
+  otwarciu aplikacji wraca ostatnio używana zakładka. Dostęp jest w `try/catch`,
+  bo przeglądarka może go zablokować (np. tryb prywatny) – wtedy wybór po prostu
+  nie jest pamiętany.
+- Zwraca obiekt z polem `value` (bieżąca zakładka) i funkcją `select(nazwa)`
+  do przełączania z kodu.
+
 #### `setEnabled(elements, enabled)`
 
 Włącza lub wyłącza (szarzy) listę przycisków / suwaków przez atrybut `disabled`.
@@ -1003,10 +1031,14 @@ moduły, trzyma stan dokumentu i obsługuje przyciski.
 - `TOOL_HINTS` – teksty podpowiedzi dla każdego narzędzia rysowania.
 - `binChannel`, `histView`, `histOpsMode`, `toolSelector` – przełączniki
   segmentowe (kanał binaryzacji, widok histogramu, tryb operacji, narzędzie).
+- `tabs` – zakładki narzędzi (`UI.createTabs`, zapamiętywane w przeglądarce).
 - `colorPicker`, `drawing`, `shapeForm` – utworzone panele i narzędzia.
 
 #### Funkcje
 
+- **`showDrawingColor(rgb)`** – wywoływana przez panel „Kolor” po każdej
+  zmianie koloru; aktualizuje próbkę „Kolor rysowania” w zakładce Kształty.
+  Kliknięcie tej próbki przełącza na zakładkę „Kolor”.
 - **`currentStyle()`** – styl nowych kształtów: kolor z panelu „Kolor”
   i grubość z pola „Grubość linii” (ograniczona do 1–50).
 - **`redrawHistogram()`** – rysuje wykres z zapamiętanego histogramu (np. po
@@ -1151,6 +1183,8 @@ histogramu z osią, przygotowanie formularza kształtów i stanu przycisków.
 
 | Pojęcie | Wyjaśnienie |
 |---------|-------------|
+| **Zakładka** | Przycisk w pionowym pasku po lewej; pokazuje jeden panel narzędzi. |
+| **Zmienna CSS** | Nazwana wartość w stylach, np. `--accent: #4f8cff`; zmiana w jednym miejscu zmienia kolor w całej aplikacji. |
 | **Piksel** | Najmniejszy punkt obrazu; ma kolor zapisany jako R, G, B (+ A). |
 | **Kanał** | Jedna składowa koloru dla wszystkich pikseli (np. kanał R = same wartości czerwieni). |
 | **Bufor** | Tablica w pamięci z liczbami pikseli. |

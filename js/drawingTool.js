@@ -24,7 +24,7 @@
   /** Minimalne przesunięcie (px ekranu), od którego wciśnij-przeciągnij-puść tworzy kształt. */
   const DRAG_THRESHOLD = 4;
 
-  const HANDLE_BORDER = { r: 37, g: 99, b: 235 }; // --accent
+  const HANDLE_BORDER = { r: 79, g: 140, b: 255 }; // --accent
   const HANDLE_FILL = { r: 255, g: 255, b: 255 };
 
   /**

@@ -32,15 +32,15 @@ index.html
 |------|-------|---------------------|----------------|
 | `imageIO.js` | `BioEditor.ImageIO` | Biometria 1 | Wczytanie pliku obrazu, wyświetlenie na kanwie, zapis do PNG, pusta biała kanwa. |
 | `imageProcessing.js` | `BioEditor.ImageProcessing` | Biometria 1, 2 | Algorytmy na pikselach: binaryzacja, tablice LUT, rozciąganie i wyrównanie histogramu, próg Otsu, jasność/kontrast, negatyw. |
-| `histogram.js` | `BioEditor.Histogram` | Biometria 1, 2 | Liczenie histogramów (R, G, B, średnia) i ręczne rysowanie wykresu na kanwie. |
+| `histogram.js` | `BioEditor.Histogram` | Biometria 1, 2 | Liczenie histogramów (R, G, B, średnia) i ręczne rysowanie wykresu na kanwie (kolory wykresu z motywu CSS). |
 | `colorSpaces.js` | `BioEditor.ColorSpaces` | Grafika 1b | Przeliczanie kolorów: RGB ↔ CMYK, RGB ↔ HSV, RGB → HEX. |
 | `raster.js` | `BioEditor.Raster` | Grafika 1a | Rysowanie pikseli: linia (Bresenham), okrąg (midpoint), prostokąt, wypełniony prostokąt. |
 | `shapes.js` | `BioEditor.Shapes` | Grafika 1a | Kształty jako obiekty z parametrami: tworzenie, przesuwanie, uchwyty, trafienie myszą, nakładanie na obraz. |
-| `ui.js` | `BioEditor.UI` | wspólne | Małe pomocnicze elementy interfejsu: przełącznik segmentowy, włączanie/wyłączanie przycisków, pasek statusu. |
+| `ui.js` | `BioEditor.UI` | wspólne | Małe pomocnicze elementy interfejsu: przełącznik segmentowy, zakładki narzędzi, włączanie/wyłączanie przycisków, pasek statusu. |
 | `colorPicker.js` | `BioEditor.ColorPicker` | Grafika 1b | Panel „Kolor”: kwadrat i pasek odcienia, suwaki, pola RGB/CMYK, podgląd i wartości po konwersji. |
 | `drawingTool.js` | `BioEditor.DrawingTool` | Grafika 1a | Obsługa myszy na obrazie: rysowanie kształtów kliknięciami, zaznaczanie, przesuwanie, zmiana rozmiaru uchwytami. |
 | `shapeForm.js` | `BioEditor.ShapeForm` | Grafika 1a | Pola tekstowe z parametrami kształtu: dodawanie nowego, edycja zaznaczonego, usuwanie. |
-| `main.js` | – | wszystkie | Stan aplikacji (obraz, kształty, historia Cofnij), odświeżanie widoku, podpięcie wszystkich przycisków i suwaków. |
+| `main.js` | – | wszystkie | Stan aplikacji (obraz, kształty, historia Cofnij), odświeżanie widoku, zakładki, podpięcie wszystkich przycisków i suwaków. |
 
 ## Podział odpowiedzialności
 
@@ -52,6 +52,13 @@ index.html
   do `main.js`.
 - **`main.js`** jest jedynym miejscem, które trzyma stan dokumentu i historię
   Cofnij.
+
+## Interfejs
+
+Po lewej pionowy pasek zakładek (Biometria: Progowanie, Histogram, Korekta;
+Grafika: Kolor, Kształty). Sidebar pokazuje tylko panel wybranej zakładki,
+a histogram jest przypięty na dole i widoczny zawsze. Motyw jest ciemny;
+wszystkie kolory to zmienne CSS w `:root` w `css/style.css`.
 
 ## Główne zasady w kodzie
 

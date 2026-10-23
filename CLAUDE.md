@@ -51,8 +51,9 @@ Po zmianach w plikach JS zaktualizuj też `docs/pliki-js.md` i `docs/przewodnik-
 ## Architektura
 
 ```
-index.html              – układ UI; panele narzędzi w <aside class="sidebar">
-css/style.css           – style; zmienne kolorów w :root
+index.html              – układ UI: pasek zakładek (nav.tabbar) + sidebar z panelem aktywnej zakładki
+                          i przypiętym histogramem + obszar roboczy
+css/style.css           – style, ciemny motyw; wszystkie kolory jako zmienne w :root
 js/imageIO.js           – wczytanie / wyświetlenie / zapis (BioEditor.ImageIO)
 js/imageProcessing.js   – algorytmy na ImageData (BioEditor.ImageProcessing)
 js/histogram.js         – liczenie i rysowanie histogramu (BioEditor.Histogram)
@@ -96,8 +97,11 @@ docs/                   – dokumentacja kodu (pliki-js.md – skrót, przewodni
   `window` albo `globalThis`, więc można je załadować w Node przez `require`.
 - Kanały oznaczamy kluczami `'r' | 'g' | 'b' | 'avg'`; średnia to
   `((R + G + B) / 3) | 0` – ta sama definicja wszędzie.
-- Nowa funkcja w UI = nowa `<section class="panel">` w sidebarze, z użyciem
-  istniejących klas (`.field`, `.label`, `.segmented`, `.btn`, `.btn-primary`,
+- Nowa funkcja w UI = nowy przycisk zakładki w `<nav id="tool-tabs">` (`data-tab="nazwa"`,
+  ikona SVG + krótki podpis) + `<section class="panel" data-tab-panel="nazwa" hidden>`
+  w `.sidebar-content` (przełącza `UI.createTabs`). Kolory tylko przez zmienne CSS
+  (`--panel`, `--accent`…; wykres histogramu czyta `--chart-*`). Panel z
+  użyciem istniejących klas (`.field`, `.label`, `.segmented`, `.btn`, `.btn-primary`,
   `.btn-block`, `.input`, `.hint`, `.btn-row`). Akcje przetwarzające obraz idą przez `commit()` + `render()`
   + `updateControls()` i wypisują czas operacji na pasku statusu.
 - Komentarze i JSDoc po polsku, z typami w JSDoc (`@param`, `@returns`).
