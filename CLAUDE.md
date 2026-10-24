@@ -20,7 +20,7 @@ Po zmianach w plikach JS zaktualizuj też `docs/pliki-js.md` i `docs/przewodnik-
 - Użytkownik dobrze zna JS i C#, słabo C++, podstawowo Pythona, **nie zna Javy**.
   Porównania (jeśli pomagają) rób do C#.
 - Do każdego nowego algorytmu / mniej oczywistej funkcji API dodawaj
-  **wytłumaczenie edukacyjne**: w odpowiedzi oraz w komentarzu JSDoc
+  **wytłumaczenie edukacyjne**: w odpowiedzi oraz w `docs/przewodnik-po-kodzie.md`
   (jak działa algorytm, dlaczego tak, złożoność / optymalizacje).
 
 ## Decyzje techniczne
@@ -104,7 +104,9 @@ docs/                   – dokumentacja kodu (pliki-js.md – skrót, przewodni
   użyciem istniejących klas (`.field`, `.label`, `.segmented`, `.btn`, `.btn-primary`,
   `.btn-block`, `.input`, `.hint`, `.btn-row`). Akcje przetwarzające obraz idą przez `commit()` + `render()`
   + `updateControls()` i wypisują czas operacji na pasku statusu.
-- Komentarze i JSDoc po polsku, z typami w JSDoc (`@param`, `@returns`).
+- **Pliki w `js/` są bez komentarzy** (decyzja użytkowniczki). Opisy funkcji
+  i algorytmów trzymamy w `docs/`. Wersja z komentarzami JSDoc jest zachowana
+  na gałęzi `archiwum/wersja-z-komentarzami-2026-10-24`.
 - Nazwy identyfikatorów po angielsku (camelCase), teksty UI po polsku.
 
 ## Uruchamianie i testowanie
