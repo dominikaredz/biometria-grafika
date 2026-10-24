@@ -1,30 +1,10 @@
-/**
- * shapes.js – model kształtów (scena wektorowa) i ich geometria.
- *
- * Kształt to zwykły obiekt z parametrami, np.:
- *   { type: 'line',   x1, y1, x2, y2, color, width }
- *   { type: 'rect',   x, y, w, h,     color, width }   (x, y – lewy górny róg)
- *   { type: 'circle', cx, cy, r,      color, width }
- *
- * Dlaczego wektorowo, a nie od razu w pikselach? Narysowany piksel "nie wie",
- * że należy do linii – nie dałoby się go zaznaczyć, przesunąć ani zmienić.
- * Trzymamy więc listę kształtów, a obraz z kształtami generujemy przy każdym
- * odświeżeniu (Shapes.composite) z obrazu bazowego + rasteryzacji.
- *
- * Kształty są niezmienne (immutable): każda operacja (przesunięcie, zmiana
- * rozmiaru) zwraca NOWY obiekt. Dzięki temu historia Cofnij może po prostu
- * pamiętać stare tablice kształtów.
- */
 (function (global) {
   'use strict';
 
   const BioEditor = (global.BioEditor = global.BioEditor || {});
 
-  /** Ograniczenie wartości współrzędnych – chroni przed "zawieszeniem"
-   *  pętli rysującej po wpisaniu np. 1e9 w pole tekstowe. */
   const COORD_LIMIT = 20000;
 
-  /** Opis typów: etykieta i parametry edytowalne w polach tekstowych. */
   const TYPES = {
     line: {
       label: 'Linia',
@@ -57,18 +37,6 @@
   const clamp = (v, min, max) => (v < min ? min : v > max ? max : v);
   const toCoord = (v) => clamp(Math.round(Number(v) || 0), -COORD_LIMIT, COORD_LIMIT);
 
-  // ---------- Tworzenie ----------
-
-  /**
-   * Tworzy kształt z parametrów (np. wpisanych w pola tekstowe).
-   * Wartości są zaokrąglane do całkowitych, a prostokąt normalizowany:
-   * ujemna szerokość/wysokość oznacza "w drugą stronę" od punktu (x, y).
-   *
-   * @param {'line'|'rect'|'circle'} type
-   * @param {object} params
-   * @param {{color: {r: number, g: number, b: number}, width: number}} style
-   * @returns {object} kształt
-   */
   function create(type, params, { color, width }) {
     const style = { color: { ...color }, width: clamp(Math.round(width) || 1, 1, 50) };
     const p = {};
@@ -83,12 +51,6 @@
     return { type, ...p, ...style };
   }
 
-  /**
-   * Tworzy kształt z dwóch punktów klikniętych myszą:
-   *   linia     – początek i koniec,
-   *   prostokąt – dwa przeciwległe rogi,
-   *   okrąg     – środek i dowolny punkt na okręgu (wyznacza promień).
-   */
   function fromPoints(type, a, b, style) {
     switch (type) {
       case 'line':
@@ -102,14 +64,12 @@
     }
   }
 
-  /** Parametry kształtu do wyświetlenia w polach tekstowych. */
   function params(shape) {
     const p = {};
     for (const f of TYPES[shape.type].fields) p[f.key] = shape[f.key];
     return p;
   }
 
-  /** Domyślne parametry nowego kształtu – na środku obrazu W × H. */
   function defaultParams(type, W, H) {
     const q = (n) => Math.round(n);
     switch (type) {
@@ -123,9 +83,6 @@
   const withParams = (shape, p) => create(shape.type, p, shape);
   const withStyle = (shape, style) => create(shape.type, params(shape), style);
 
-  // ---------- Przekształcenia myszą ----------
-
-  /** Przesunięcie o wektor (dx, dy). */
   function translate(shape, dx, dy) {
     switch (shape.type) {
       case 'line':
@@ -137,14 +94,6 @@
     }
   }
 
-  /**
-   * Uchwyty (punkty charakterystyczne), za które można chwycić myszą:
-   *   linia     – oba końce,
-   *   prostokąt – cztery rogi,
-   *   okrąg     – cztery punkty na okręgu (góra, prawo, dół, lewo).
-   *
-   * @returns {{id: string, x: number, y: number}[]}
-   */
   function getHandles(shape) {
     switch (shape.type) {
       case 'line':
@@ -173,7 +122,6 @@
     }
   }
 
-  /** Zwraca id uchwytu w odległości <= tol od punktu (x, y) albo null. */
   function handleAt(shape, x, y, tol) {
     for (const h of getHandles(shape)) {
       if (Math.abs(h.x - x) <= tol && Math.abs(h.y - y) <= tol) return h.id;
@@ -181,15 +129,6 @@
     return null;
   }
 
-  /**
-   * Przeciąganie uchwytu do punktu (x, y).
-   *
-   * Zawsze liczymy względem kształtu z CHWILI ROZPOCZĘCIA przeciągania
-   * (origin), a nie poprzedniego kroku – błędy zaokrągleń się nie kumulują.
-   * W prostokącie róg przeciwległy do chwyconego jest "kotwicą": zostaje
-   * w miejscu, a prostokąt rozpina się między kotwicą a kursorem (można
-   * nawet "przewinąć" go na drugą stronę).
-   */
   function dragHandle(origin, handleId, x, y) {
     switch (origin.type) {
       case 'line':
@@ -206,13 +145,6 @@
     }
   }
 
-  // ---------- Trafienie myszą (hit-testing) ----------
-
-  /**
-   * Odległość punktu P od odcinka AB.
-   * Rzutujemy P na prostą AB: t = (AP · AB) / |AB|², przycinamy t do [0, 1]
-   * (żeby zostać na odcinku), i liczymy odległość P od punktu A + t·AB.
-   */
   function distanceToSegment(px, py, ax, ay, bx, by) {
     const abx = bx - ax;
     const aby = by - ay;
@@ -221,7 +153,6 @@
     return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
   }
 
-  /** Odległość punktu od KONTURU kształtu (chwytamy za krawędź, nie za wnętrze). */
   function distanceToOutline(shape, x, y) {
     switch (shape.type) {
       case 'line':
@@ -236,24 +167,19 @@
         );
       }
       default:
-        // okrąg: |odległość od środka − promień|
+
         return Math.abs(Math.hypot(x - shape.cx, y - shape.cy) - shape.r);
     }
   }
 
-  /** Czy punkt (x, y) trafia w kontur kształtu (z tolerancją tol pikseli)? */
   function hitTest(shape, x, y, tol) {
     return distanceToOutline(shape, x, y) <= tol + shape.width / 2;
   }
 
-  /** Czy dwa kształty mają te same parametry i styl? */
   function equals(a, b) {
     return JSON.stringify(a) === JSON.stringify(b);
   }
 
-  // ---------- Rysowanie ----------
-
-  /** Rasteryzuje kształt do bufora img (modyfikuje img). */
   function draw(shape, img) {
     const { Raster } = BioEditor;
     switch (shape.type) {
@@ -263,14 +189,6 @@
     }
   }
 
-  /**
-   * Obraz bazowy + kształty -> NOWY obraz (baza zostaje nietknięta).
-   * new Uint8ClampedArray(src) kopiuje cały bufor jedną szybką operacją.
-   *
-   * @param {ImageData} base
-   * @param {object[]} shapes
-   * @returns {ImageData}
-   */
   function composite(base, shapes) {
     const out = new ImageData(new Uint8ClampedArray(base.data), base.width, base.height);
     for (const s of shapes) draw(s, out);
