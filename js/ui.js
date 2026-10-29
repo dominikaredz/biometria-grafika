@@ -80,6 +80,58 @@
     };
   }
 
+  /**
+   * Buduje siatkę pól liczbowych (etykieta + <input type="number">) z opisu
+   * parametrów, np. [{ key: 'k', label: 'k', min: 0, max: 1, step: 0.05, value: 0.5 }].
+   * Poprzednia zawartość kontenera jest usuwana.
+   *
+   * @param {HTMLElement} container  element z klasą .param-grid
+   * @param {{key: string, label: string, min?: number, max?: number, step?: number, value: number}[]} params
+   * @param {string} idPrefix  przedrostek atrybutów id pól (etykiety muszą wskazywać pole)
+   * @returns {{ read: () => (object|null) }} read() zwraca { key: liczba } albo null,
+   *   gdy któreś pole jest puste lub poza zakresem (to pole dostaje klasę .invalid)
+   */
+  function createParamFields(container, params, idPrefix) {
+    container.replaceChildren();
+    const inputs = {};
+    for (const f of params) {
+      const label = document.createElement('label');
+      label.className = 'label';
+      label.htmlFor = `${idPrefix}-${f.key}`;
+      label.textContent = f.label;
+
+      const input = document.createElement('input');
+      input.id = `${idPrefix}-${f.key}`;
+      input.type = 'number';
+      input.className = 'input';
+      input.value = String(f.value);
+      if (f.min !== undefined) input.min = String(f.min);
+      if (f.max !== undefined) input.max = String(f.max);
+      if (f.step !== undefined) input.step = String(f.step);
+      input.addEventListener('input', () => input.classList.remove('invalid'));
+
+      container.append(label, input);
+      inputs[f.key] = { input, f };
+    }
+
+    function read() {
+      const values = {};
+      let ok = true;
+      for (const key in inputs) {
+        const { input, f } = inputs[key];
+        const v = Number(input.value);
+        const valid = input.value.trim() !== '' && Number.isFinite(v)
+          && (f.min === undefined || v >= f.min) && (f.max === undefined || v <= f.max);
+        input.classList.toggle('invalid', !valid);
+        if (!valid) ok = false;
+        values[key] = v;
+      }
+      return ok ? values : null;
+    }
+
+    return { read };
+  }
+
   /** Włącza/wyłącza przyciski (atrybut disabled). */
   function setEnabled(elements, enabled) {
     elements.forEach((el) => { el.disabled = !enabled; });
@@ -90,5 +142,5 @@
     element.textContent = text;
   }
 
-  BioEditor.UI = { createSegmented, createTabs, setEnabled, setStatus };
+  BioEditor.UI = { createSegmented, createTabs, createParamFields, setEnabled, setStatus };
 })(window);

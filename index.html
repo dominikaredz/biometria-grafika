@@ -32,6 +32,10 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M12 4v16" /><path d="M4 4h8v16H4z" fill="currentColor" stroke="none"/></svg>
         <span>Progowanie</span>
       </button>
+      <button type="button" role="tab" data-tab="advthresh" aria-selected="false" title="Binaryzacja: Kapur, Niblack, Sauvola, Phansalkar, Bernsen, własna">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 14 10"/><path d="m12.5 8.5 3 3"/><path d="M16 3v3M21 8h-3M19.5 4.5l-2 2M9 4v2M8 5h2M20 13v2M19 14h2"/></svg>
+        <span>Metody</span>
+      </button>
       <button type="button" role="tab" data-tab="histops" aria-selected="false" title="Rozciąganie i wyrównanie histogramu">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M6 20v-5M10 20V8M14 20v-9M18 20v-4"/></svg>
         <span>Histogram</span>
@@ -48,6 +52,14 @@
       <button type="button" role="tab" data-tab="shapes" aria-selected="false" title="Linia, prostokąt, okrąg">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="4.5"/><path d="M12 12h8v8h-8z"/><path d="M3 21l7-7"/></svg>
         <span>Kształty</span>
+      </button>
+      <button type="button" role="tab" data-tab="filters" aria-selected="false" title="Filtr uśredniający, medianowy, Sobel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/></svg>
+        <span>Filtry</span>
+      </button>
+      <button type="button" role="tab" data-tab="morph" aria-selected="false" title="Dylatacja, erozja, otwarcie, zamknięcie">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>
+        <span>Morfologia</span>
       </button>
     </nav>
 
@@ -274,6 +286,94 @@
         </button>
       </section>
 
+      <section class="panel" id="panel-adv-threshold" data-tab-panel="advthresh" hidden>
+        <h2>Binaryzacja – metody</h2>
+
+        <div class="field">
+          <label class="label" for="thr-method">Metoda</label>
+          <select id="thr-method" class="input"></select>
+          <p class="hint" id="thr-hint"></p>
+        </div>
+
+        <div class="param-grid field" id="thr-params"></div>
+
+        <button id="btn-thr-apply" class="btn btn-primary btn-block" type="button" disabled>Binaryzuj</button>
+        <p class="hint">Metody działają na obrazie szarości (średnia kanałów).
+          Biały – wartość piksela ≥ progu, czarny – poniżej.</p>
+      </section>
+
+      <section class="panel" id="panel-filters" data-tab-panel="filters" hidden>
+        <h2>Filtry</h2>
+
+        <div class="field">
+          <span class="label">Wygładzający (uśredniający)</span>
+          <div class="filter-row">
+            <label for="blur-size">Okno</label>
+            <input id="blur-size" class="input" type="number" min="3" max="51" step="2" value="3">
+            <button id="btn-blur" class="btn btn-primary" type="button" disabled>Zastosuj</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">Medianowy</span>
+          <div class="filter-row">
+            <label for="median-size">Okno</label>
+            <input id="median-size" class="input" type="number" min="3" max="51" step="2" value="3">
+            <button id="btn-median" class="btn btn-primary" type="button" disabled>Zastosuj</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">Wykrywanie krawędzi (Sobel)</span>
+          <div class="segmented" id="sobel-mode">
+            <button type="button" data-value="magnitude" class="active" title="Siła krawędzi √(Gx² + Gy²)">|G|</button>
+            <button type="button" data-value="x" title="Krawędzie pionowe">Gx</button>
+            <button type="button" data-value="y" title="Krawędzie poziome">Gy</button>
+          </div>
+          <button id="btn-sobel" class="btn btn-primary btn-block btn-spaced" type="button" disabled>Zastosuj</button>
+        </div>
+        <p class="hint">Okno to rozmiar sąsiedztwa (nieparzysty, np. 3 = 3×3 piksele).
+          Sobel zwraca obraz szarości: im jaśniej, tym silniejsza krawędź
+          (|G| – wszystkie, Gx – pionowe, Gy – poziome).</p>
+      </section>
+
+      <section class="panel" id="panel-morph" data-tab-panel="morph" hidden>
+        <h2>Morfologia</h2>
+
+        <div class="field" id="se-editor">
+          <span class="label">Element strukturyzujący</span>
+          <div class="range-inputs">
+            <label for="se-width">szer.</label>
+            <input id="se-width" data-role="se-width" class="input" type="number" min="1" max="31" step="1" value="3">
+            <label for="se-height">wys.</label>
+            <input id="se-height" data-role="se-height" class="input" type="number" min="1" max="31" step="1" value="3">
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn" data-preset="square">Kwadrat</button>
+            <button type="button" class="btn" data-preset="cross">Krzyż</button>
+            <button type="button" class="btn" data-preset="disk">Koło</button>
+            <button type="button" class="btn" data-preset="empty">Pusty</button>
+          </div>
+          <div class="se-grid" data-role="se-grid"></div>
+          <p class="hint" data-role="se-info"></p>
+          <p class="hint">Kliknij lub przeciągnij po polach, aby je włączyć/wyłączyć.
+            Pole z ramką to środek elementu.</p>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary" data-morph="dilate" disabled>Dylatacja</button>
+          <button type="button" class="btn btn-primary" data-morph="erode" disabled>Erozja</button>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn" data-morph="open" disabled>Otwarcie</button>
+          <button type="button" class="btn" data-morph="close" disabled>Zamknięcie</button>
+        </div>
+        <p class="hint">Działa na obrazie binarnym (obiekt = biały). Obraz, który nie jest
+          binarny, jest najpierw progowany w połowie skali (średnia ≥ 128) – lepiej
+          wcześniej zbinaryzować go w zakładce Progowanie lub Metody. Ciemny tekst na
+          jasnym tle to tło dla morfologii – najpierw użyj „Negatywu” (zakładka Korekta).</p>
+      </section>
+
       </div>
 
       <section class="panel panel-pinned" id="panel-histogram">
@@ -317,6 +417,8 @@
   <script src="js/imageIO.js"></script>
   <script src="js/imageProcessing.js"></script>
   <script src="js/histogram.js"></script>
+  <script src="js/filters.js"></script>
+  <script src="js/thresholding.js"></script>
   <script src="js/colorSpaces.js"></script>
   <script src="js/raster.js"></script>
   <script src="js/shapes.js"></script>
@@ -324,6 +426,7 @@
   <script src="js/colorPicker.js"></script>
   <script src="js/drawingTool.js"></script>
   <script src="js/shapeForm.js"></script>
+  <script src="js/structuringElementEditor.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

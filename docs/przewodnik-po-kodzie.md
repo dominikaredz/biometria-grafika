@@ -14,6 +14,8 @@ Spis treści:
    - [imageIO.js](#41-imageiojs--wczytanie-wyświetlenie-zapis)
    - [imageProcessing.js](#42-imageprocessingjs--algorytmy-przetwarzania-obrazu)
    - [histogram.js](#43-histogramjs--liczenie-i-rysowanie-histogramu)
+   - [filters.js](#412-filtersjs--filtry-sąsiedztwa-i-morfologia)
+   - [thresholding.js](#413-thresholdingjs--zaawansowana-binaryzacja)
    - [colorSpaces.js](#44-colorspacesjs--przeliczanie-kolorów)
    - [raster.js](#45-rasterjs--rysowanie-linii-okręgów-i-prostokątów)
    - [shapes.js](#46-shapesjs--kształty-jako-obiekty)
@@ -21,6 +23,7 @@ Spis treści:
    - [colorPicker.js](#48-colorpickerjs--panel-wyboru-koloru)
    - [drawingTool.js](#49-drawingtooljs--mysz-na-obrazie)
    - [shapeForm.js](#410-shapeformjs--pola-tekstowe-kształtu)
+   - [structuringElementEditor.js](#414-structuringelementeditorjs--edytor-elementu-strukturyzującego)
    - [main.js](#411-mainjs--serce-aplikacji)
 5. [Scenariusze: co się dzieje po kliknięciu](#5-scenariusze-co-się-dzieje-po-kliknięciu)
 6. [Słowniczek pojęć](#6-słowniczek-pojęć)
@@ -257,9 +260,11 @@ kliknięcie przycisku
 W `index.html` skrypty są wczytywane w tej kolejności:
 
 1. `imageIO.js`, `imageProcessing.js`, `histogram.js` – biometria,
-2. `colorSpaces.js`, `raster.js`, `shapes.js` – algorytmy grafiki,
-3. `ui.js`, `colorPicker.js`, `drawingTool.js`, `shapeForm.js` – interfejs,
-4. `main.js` – na końcu, bo korzysta ze wszystkich poprzednich.
+2. `filters.js`, `thresholding.js` – filtry, morfologia i metody binaryzacji,
+3. `colorSpaces.js`, `raster.js`, `shapes.js` – algorytmy grafiki,
+4. `ui.js`, `colorPicker.js`, `drawingTool.js`, `shapeForm.js`,
+   `structuringElementEditor.js` – interfejs,
+5. `main.js` – na końcu, bo korzysta ze wszystkich poprzednich.
 
 Używamy zwykłych `<script src>`, a nie „modułów ES”, bo moduły nie działają
 przy otwieraniu pliku `index.html` prosto z dysku (blokada bezpieczeństwa
@@ -839,6 +844,17 @@ Obsługuje **zakładki narzędzi** (pionowy pasek po lewej).
 - Zwraca obiekt z polem `value` (bieżąca zakładka) i funkcją `select(nazwa)`
   do przełączania z kodu.
 
+#### `createParamFields(container, params, idPrefix)`
+
+Buduje formularz z **opisu parametrów** – tablicy obiektów
+`{ key, label, min, max, step, value }`. Dla każdego parametru tworzy etykietę
+i pole liczbowe z ustawionym zakresem i wartością domyślną.
+- Zwraca obiekt z funkcją `read()`. Ta odczytuje wszystkie pola i zwraca obiekt
+  `{ key: liczba }` albo `null`, gdy któreś pole jest puste lub poza zakresem
+  (takie pole podświetla się na czerwono).
+- Dzięki temu dodanie nowej metody binaryzacji z innymi parametrami nie wymaga
+  zmian w HTML – wystarczy wpis w `Thresholding.METHODS`.
+
 #### `setEnabled(elements, enabled)`
 
 Włącza lub wyłącza (szarzy) listę przycisków / suwaków przez atrybut `disabled`.
@@ -1029,6 +1045,8 @@ moduły, trzyma stan dokumentu i obsługuje przyciski.
 
 - `el` – zebrane w jednym miejscu elementy strony (przyciski, suwaki, kanwy).
 - `TOOL_HINTS` – teksty podpowiedzi dla każdego narzędzia rysowania.
+- `sobelMode` – przełącznik trybu Sobela, `seEditor` – edytor elementu
+  strukturyzującego, `morphButtons` – przyciski operacji morfologicznych.
 - `binChannel`, `histView`, `histOpsMode`, `toolSelector` – przełączniki
   segmentowe (kanał binaryzacji, widok histogramu, tryb operacji, narzędzie).
 - `tabs` – zakładki narzędzi (`UI.createTabs`, zapamiętywane w przeglądarce).
@@ -1075,6 +1093,11 @@ moduły, trzyma stan dokumentu i obsługuje przyciski.
   `updateControls`, status „opis: X ms”.
 - **`readLevel(input)`** – odczytuje liczbę 0–255 z pola (rozciąganie);
   niepoprawne pole podświetla na czerwono.
+- **`showThresholdParams()`** – po wyborze metody w zakładce „Metody” buduje
+  pola jej parametrów (`UI.createParamFields`) i pokazuje krótki opis wzoru
+  (`THRESHOLD_HINTS`).
+- **`readWindowSize(input)`** – odczytuje rozmiar okna filtra: liczba
+  nieparzysta 3–51; inaczej podświetla pole na czerwono i zwraca `null`.
 - **`updateAdjustPreview()`** – po ruchu suwaka jasności/kontrastu liczy
   podgląd (bez zapisywania w historii) i odświeża obraz razem z histogramem.
 
@@ -1097,6 +1120,10 @@ moduły, trzyma stan dokumentu i obsługuje przyciski.
 | „Spłaszcz kształty” | wtapia kształty w obraz (`composite`), lista kształtów pusta |
 | „Cofnij” | zdejmuje ostatni stan ze stosu i przywraca go |
 | „Przywróć oryginał” | wraca do obrazu po wczytaniu, bez kształtów (też można cofnąć) |
+| „Binaryzuj” (Metody) | `Thresholding.binarize` wybraną metodą z parametrami z pól; status pokazuje parametry lub wyznaczony próg |
+| „Zastosuj” – uśredniający / medianowy | `Filters.meanFilter` / `Filters.medianFilter` z oknem z pola |
+| „Zastosuj” – Sobel | `Filters.sobel` w trybie \|G\|, Gx albo Gy |
+| „Dylatacja”, „Erozja”, „Otwarcie”, „Zamknięcie” | `Filters.morphology` z elementem z edytora |
 | „Skala logarytmiczna” | przerysowuje histogram |
 | klawisz Esc | przerywa rysowanie / odznacza kształt |
 | klawisz Delete / Backspace | usuwa zaznaczony kształt |
@@ -1108,6 +1135,273 @@ Backspace kasował znaki, a nie kształt).
 
 Na końcu pliku: ustawienie podpowiedzi narzędzia, narysowanie pustego
 histogramu z osią, przygotowanie formularza kształtów i stanu przycisków.
+
+---
+
+### 4.12. `filters.js` – filtry sąsiedztwa i morfologia
+
+Moduł: `BioEditor.Filters`. Grafika, zadanie 2.
+
+**Czym różni się filtr od operacji punktowej?** W operacji punktowej
+(np. jasność) nowy piksel zależy tylko od swojej starej wartości – wystarczy
+tablica LUT. W **filtrze** nowy piksel zależy od **sąsiedztwa**: okna k × k
+pikseli wokół niego (np. 3×3 = piksel + 8 sąsiadów). To kosztowniejsze, więc
+każdy filtr ma swój sposób na przyspieszenie.
+
+**Brzeg obrazu.** Piksel w rogu nie ma sąsiadów z lewej i z góry. Brakujących
+sąsiadów zastępuje najbliższy piksel brzegowy („powielenie brzegu”) – dzięki
+temu okno zawsze ma pełny rozmiar, a brzeg nie ciemnieje.
+
+#### `toGray(src)` i `fromGray(gray, src)`
+
+Pomocnicze: `toGray` liczy obraz szarości (średnia R, G, B) jako tablicę
+jednej liczby na piksel; `fromGray` zamienia ją z powrotem na obraz
+(R = G = B), przepisując przezroczystość z oryginału.
+
+#### `meanFilter(src, { size })` – filtr uśredniający (wygładzający)
+
+- **Co robi:** każdy piksel zastępuje średnią z okna size × size wokół niego.
+  Obraz się rozmywa, a drobny szum „rozpływa się” w otoczeniu.
+- **Problem:** liczone wprost to size² dodawań na piksel (dla okna 15×15 – 225).
+- **Sztuczka 1 – rozdzielność:** średnia w kwadracie = średnia w pionie ze
+  średnich w poziomie. Robimy dwa przebiegi z oknem jednowymiarowym:
+  najpierw każdy wiersz, potem każda kolumna.
+- **Sztuczka 2 – suma krocząca:** gdy okno przesuwa się o 1 piksel, do sumy
+  dodajemy wartość, która weszła, i odejmujemy tę, która wypadła – zamiast
+  sumować wszystko od nowa.
+- **Koszt:** stały na piksel, niezależny od rozmiaru okna (15×15 liczy się
+  tak samo szybko jak 3×3).
+- Działa na każdym kanale R, G, B osobno.
+
+#### `medianFilter(src, { size })` – filtr medianowy
+
+- **Co robi:** każdy piksel zastępuje **medianą** z okna – wartością środkową
+  po posortowaniu. Np. dla wartości 10, 12, 11, 255, 13 mediana to 12.
+- **Po co:** świetnie usuwa szum typu „sól i pieprz” (pojedyncze białe i czarne
+  kropki). Skrajna wartość 255 trafia na koniec listy i nie wpływa na wynik,
+  podczas gdy średnia by ją „rozsmarowała”. Mediana nie rozmywa też krawędzi.
+- **Problem:** sortowanie okna w każdym pikselu jest drogie.
+- **Algorytm Huanga:** dla okna trzymamy **histogram** jego wartości
+  (256 liczników). Przy przesunięciu okna w prawo zmniejszamy liczniki wartości
+  z kolumny, która wypadła, i zwiększamy dla kolumny, która weszła. Medianę
+  śledzimy wskaźnikiem `med` oraz licznikiem `lt` – ile wartości w oknie jest
+  mniejszych od `med`. Mediana to taka wartość, przed którą jest mniej niż
+  połowa elementów, a razem z nią – więcej niż połowa. Po każdym przesunięciu
+  wskaźnik przesuwa się tylko o kilka pozycji w górę lub w dół.
+- **Koszt:** ok. 2·size operacji na piksel zamiast sortowania size² liczb.
+
+#### `sobel(src, { mode })` – wykrywanie krawędzi
+
+- **Krawędź** to miejsce, gdzie jasność gwałtownie się zmienia. Matematycznie –
+  gdzie pochodna (gradient) jest duża.
+- Sobel przybliża pochodne dwiema maskami 3×3 (każdy sąsiad mnożony przez wagę,
+  wyniki sumowane):
+
+  ```
+        Gx                Gy
+   -1  0  +1        -1  -2  -1
+   -2  0  +2         0   0   0
+   -1  0  +1        +1  +2  +1
+  ```
+
+  Gx = (prawa kolumna) − (lewa kolumna) → wykrywa krawędzie **pionowe**,
+  Gy = (dolny wiersz) − (górny wiersz) → krawędzie **poziome**.
+  Waga 2 w środku to lekkie wygładzenie – Sobel jest przez to mniej czuły na szum.
+- **Siła krawędzi:** |G| = √(Gx² + Gy²), przycięta do 0–255.
+- `mode`: `'magnitude'` – |G|, `'x'` – |Gx|, `'y'` – |Gy|.
+- Działa na obrazie szarości; wynik jest szary: czarne tło, jasne krawędzie.
+
+#### `createStructuringElement(width, height, shape)`
+
+Tworzy **element strukturyzujący** – maskę width × height z polami aktywnymi
+(1) i nieaktywnymi (0), zapisaną jako `{ width, height, data }`.
+Kształty: `'square'` (wszystkie pola), `'cross'` (środkowy wiersz i kolumna),
+`'disk'` (elipsa wpisana w prostokąt), `'empty'` (żadne). Środek elementu
+(punkt odniesienia) to pole (⌊w/2⌋, ⌊h/2⌋).
+
+#### `elementOffsets(element)`
+
+Zamienia maskę na listę przesunięć (dx, dy) aktywnych pól względem środka,
+np. krzyż 3×3 → (0,−1), (−1,0), (0,0), (1,0), (0,1). Pętla morfologii
+przechodzi potem tylko po aktywnych polach.
+
+#### `toBinary(src)` i `binaryToImage(bin, src)`
+
+Morfologia działa na obrazie **binarnym**: obiekt (1) = biały, tło (0) = czarny.
+`toBinary` progowo zamienia obraz (średnia ≥ 128 → obiekt). Obraz już
+zbinaryzowany przechodzi bez zmian. `binaryToImage` zamienia wynik z powrotem
+na obraz 0/255.
+
+#### `morph(bin, W, H, offsets, isDilation)` – rdzeń dylatacji i erozji
+
+- **Dylatacja (A ⊕ B):** piksel staje się obiektem, jeśli element przyłożony
+  w tym miejscu trafia w **choć jeden** piksel obiektu.
+  Efekt: obiekty się **rozrastają**, małe dziury i przerwy się zamykają.
+  Wzór: wynik(p) = max po b ∈ B z A(p − b).
+- **Erozja (A ⊖ B):** piksel zostaje obiektem tylko, jeśli element przyłożony
+  w tym miejscu mieści się **cały** w obiekcie.
+  Efekt: obiekty się **kurczą**, drobne elementy i szum znikają.
+  Wzór: wynik(p) = min po b ∈ B z A(p + b).
+- **Odbicie elementu** (p − b w dylatacji) ma znaczenie tylko dla elementów
+  niesymetrycznych. Np. element z jednym polem po prawej stronie środka
+  przesuwa przy dylatacji obiekt o 1 piksel w prawo. Tak wynika z definicji
+  A ⊕ B = { a + b }.
+- **Wcześniejsze wyjście:** dylatacja przerywa pętlę po pierwszym trafionym
+  pikselu obiektu, erozja – po pierwszym pikselu tła.
+- Piksele spoza obrazu są pomijane.
+
+#### `morphology(src, { operation, element })`
+
+Operacja na obrazie: zamiana na binarny → `morph` → obraz 0/255.
+- `'dilate'` – dylatacja, `'erode'` – erozja,
+- `'open'` – **otwarcie** = erozja, potem dylatacja: usuwa drobny szum, a duże
+  obiekty zostawia prawie bez zmian,
+- `'close'` – **zamknięcie** = dylatacja, potem erozja: zamyka małe dziury
+  i przerwy w obiektach.
+
+---
+
+### 4.13. `thresholding.js` – zaawansowana binaryzacja
+
+Moduł: `BioEditor.Thresholding`. Biometria, zadanie 3.
+
+Wszystkie metody działają na obrazie szarości (średnia kanałów). Wynik: biały,
+gdy wartość piksela ≥ próg T, inaczej czarny.
+
+**Dwie rodziny metod:**
+- **globalne** – jeden próg dla całego obrazu (tu: Kapur; wcześniej Otsu),
+- **lokalne** – osobny próg dla każdego piksela, liczony z jego otoczenia
+  (okna w × w). Radzą sobie z **nierównym oświetleniem**, np. cieniem na
+  zdjęciu kartki: tam ta sama „biel” papieru ma w różnych miejscach inną
+  wartość, więc jeden próg nie wystarczy.
+
+#### `toGray`, `grayHistogram`, `applyThreshold`
+
+Pomocnicze: obraz szarości, jego histogram oraz zamiana na obraz binarny
+według funkcji progu `threshold(p)` (p – numer piksela).
+
+#### `localStats(gray, W, H, size)` – lokalna średnia i odchylenie
+
+Większość metod lokalnych potrzebuje dla każdego piksela **średniej m**
+i **odchylenia standardowego s** (jak bardzo wartości w oknie różnią się
+od średniej) w oknie wokół niego.
+
+- **Obraz całkowy (integral image):** tablica, w której pole (x, y) zawiera
+  sumę **wszystkich** pikseli w prostokącie od lewego górnego rogu do (x, y).
+  Sumę **dowolnego** prostokąta liczymy wtedy z 4 odczytów:
+  `S = I(dół-prawo) − I(góra-prawo) − I(dół-lewo) + I(góra-lewo)`.
+  Rysunkowo: duży prostokąt minus pas u góry, minus pas po lewej, plus róg,
+  który odjęliśmy dwa razy.
+- Robimy dwa obrazy całkowe: z wartości v i z kwadratów v². Wtedy:
+  - średnia `m = S / n` (n – liczba pikseli w oknie),
+  - wariancja `σ² = S² / n − m²` (średnia kwadratów minus kwadrat średniej),
+  - odchylenie `s = √σ²`.
+- **Koszt:** stały na piksel, niezależnie od rozmiaru okna (okno 151×151
+  liczy się tak samo szybko jak 3×3).
+- Przy brzegu okno jest przycinane do obrazu.
+
+#### `extreme1D(...)` i `localExtreme(gray, W, H, size, isMax)` – min/max w oknie
+
+Bernsen potrzebuje najmniejszej i największej wartości w oknie.
+- **Rozdzielność:** maksimum w kwadracie = maksimum w kolumnach z maksimów
+  w wierszach.
+- **Monotoniczna kolejka:** idąc wzdłuż wiersza, trzymamy listę kandydatów
+  na maksimum w kolejności malejącej. Nowa wartość usuwa z końca listy
+  wszystkie mniejsze od siebie – one nigdy już nie będą maksimum, bo nowa
+  jest większa i dłużej zostanie w oknie. Z początku listy usuwamy indeksy,
+  które wypadły z okna. Maksimum to zawsze pierwszy element listy.
+- Każdy piksel raz wchodzi do listy i raz z niej wychodzi → koszt stały na piksel.
+
+#### `niblack` – T = m + k·s
+
+Próg to lokalna średnia przesunięta o k odchyleń standardowych. Typowo
+k = −0,2: próg trochę niższy od średniej, więc ciemny tekst na jasnym tle
+zostaje czarny. **Wada:** w jednolitym tle (s ≈ 0) próg ≈ średnia, więc
+każdy drobny szum tła daje czarne plamki.
+
+#### `sauvola` – T = m·(1 + k·(s/R − 1))
+
+Poprawka Niblacka dla dokumentów; R = 128 (największe możliwe odchylenie dla
+obrazu 8-bitowego). W gładkim tle s jest małe, nawias jest ujemny, więc próg
+spada wyraźnie **poniżej** średniej → tło zostaje białe, szum znika. Przy
+tekście (s duże) próg rośnie w stronę średniej. Typowo k = 0,5.
+
+#### `phansalkar` – T = m·(1 + p·e^(−q·m) + k·(s/R − 1))
+
+Rozwinięcie Sauvoli dla obrazów o **niskim kontraście** (np. zdjęcia
+mikroskopowe komórek). Liczone na wartościach znormalizowanych do 0–1
+(R = 0,5). Dodatkowy składnik p·e^(−q·m) jest duży, gdy m jest małe – podnosi
+próg w **ciemnych** obszarach, gdzie Sauvola gubi obiekty.
+Domyślnie p = 2, q = 10, k = 0,25.
+
+#### `bernsen` – próg z lokalnego kontrastu
+
+- W oknie: zmin, zmax; kontrast C = zmax − zmin; środek T = (zmin + zmax)/2.
+- Jeśli C ≥ L (okno zawiera krawędź), próg piksela = T.
+- Jeśli C < L (okno jednolite – sam obiekt albo samo tło), cały piksel trafia
+  do jednej klasy: biały, gdy środek ≥ próg globalny, inaczej czarny.
+
+#### `kapurThreshold(hist)` – Kapur (entropia)
+
+- Próg t dzieli histogram na dwie klasy: tło [0..t] i obiekt [t+1..255].
+- Każdą klasę traktujemy jak osobny rozkład prawdopodobieństwa i liczymy
+  jego **entropię** – miarę „nieprzewidywalności” (ile informacji niesie):
+  `H = −Σ (p_i / P) · ln(p_i / P)`, gdzie p_i = (liczba pikseli o wartości i)/N,
+  a P = łączne prawdopodobieństwo klasy.
+- Kapur wybiera t, dla którego **H_tła + H_obiektu jest największa**.
+- Przekształcenie `H = ln P − (Σ p_i ln p_i) / P` pozwala liczyć entropie
+  z sum narastających – wystarcza jedna pętla po 256 wartościach.
+- Zwraca t + 1 – ta sama konwencja co Otsu („biały, gdy v ≥ próg”).
+
+#### `compensatedOtsu` – własny algorytm „Otsu z kompensacją oświetlenia”
+
+- **Problem:** Otsu (jeden próg) zawodzi przy nierównym oświetleniu. Metody
+  lokalne radzą sobie z oświetleniem, ale „wydrążają” duże obiekty – wnętrze
+  obiektu większego niż okno wygląda dla nich jak jednolite tło.
+- **Pomysł:** najpierw usunąć z obrazu oświetlenie, potem użyć jednego progu:
+  1. B(x, y) – średnia w **dużym** oknie (61×61) – szacunek oświetlenia,
+  2. G – średnia jasność całego obrazu,
+  3. obraz wyrównany: `v' = v − β·(B − G)` – miejsca jaśniejsze od przeciętnej
+     przyciemniamy, ciemniejsze rozjaśniamy,
+  4. T = Otsu(histogram v'); piksel biały, gdy v' ≥ T.
+- β < 1 (domyślnie 0,8) zostawia część lokalnego kontrastu, więc duży ciemny
+  obiekt (który też obniża B) nie zostaje „wyrównany” do koloru tła.
+- Na obrazach testowych: 100% poprawnych pikseli zarówno przy silnym gradiencie
+  oświetlenia, jak i przy dużym ciemnym obiekcie (Niblack: 87% i 62%).
+
+#### `METHODS` i `binarize(src, method, params)`
+
+- `METHODS` – **rejestr metod**: dla każdej nazwa w interfejsie i lista
+  parametrów (`{ key, label, min, max, step, value }`). Interfejs buduje
+  z niej pola (`UI.createParamFields`), więc dodanie metody nie wymaga zmian
+  w HTML.
+- `binarize` – wykonuje wybraną metodę i zwraca `{ image, info }`, gdzie `info`
+  to tekst na pasek statusu (wyznaczony próg albo użyte parametry). Rozmiar
+  okna zaokrągla do liczby nieparzystej (okno musi mieć środek).
+
+---
+
+### 4.14. `structuringElementEditor.js` – edytor elementu strukturyzującego
+
+Moduł: `BioEditor.StructuringElementEditor`. Panel w zakładce „Morfologia”.
+
+#### `create(root)`
+
+- Pola **szer.** i **wys.** (1–31) ustalają rozmiar elementu; po zmianie element
+  jest tworzony od nowa w ostatnio wybranym kształcie.
+- Przyciski **Kwadrat / Krzyż / Koło / Pusty** wczytują gotowy kształt
+  (`Filters.createStructuringElement`).
+- **Siatka pól** (zwykłe elementy `<div>` w układzie CSS grid): kliknięcie
+  przełącza pole, a przeciąganie „maluje” kolejne pola tą samą wartością
+  (włącz albo wyłącz – zależnie od pierwszego klikniętego pola). Podczas
+  przeciągania `setPointerCapture` kieruje zdarzenia do siatki, a pole pod
+  kursorem znajduje `document.elementFromPoint`.
+- Pole środkowe (punkt odniesienia) ma białą ramkę; pod siatką widać rozmiar
+  i liczbę aktywnych pól.
+- Rozmiar pól dopasowuje się, żeby siatka zmieściła się w panelu.
+- Zwraca obiekt z polem `element` – **kopią** aktualnego elementu, przekazywaną
+  do `Filters.morphology`.
+
 
 ---
 
@@ -1179,10 +1473,50 @@ histogramu z osią, przygotowanie formularza kształtów i stanu przycisków.
 
 ---
 
+### 5.8. Filtr medianowy
+
+1. Zakładka „Filtry”, okno 3, klik „Zastosuj” przy filtrze medianowym.
+2. `readWindowSize` sprawdza, że 3 jest nieparzyste i w zakresie.
+3. `applyOperation` → `Filters.medianFilter(current, { size: 3 })`: dla każdego
+   kanału i wiersza budowany jest histogram pierwszego okna, a potem okno
+   przesuwa się w prawo z aktualizacją histogramu i wskaźnika mediany.
+4. `commit` + `render`; status: „filtr medianowy 3×3: 35 ms”.
+
+### 5.9. Dylatacja własnym elementem
+
+1. Zakładka „Morfologia”: szer. 7, wys. 3, klik „Krzyż”, potem przeciągnięcie
+   myszą po górnym wierszu siatki (pola się włączają).
+2. Klik „Dylatacja” → `seEditor.element` (kopia maski) →
+   `Filters.morphology(current, { operation: 'dilate', element })`.
+3. Obraz jest zamieniany na binarny, maska na listę przesunięć, a każdy piksel
+   staje się biały, jeśli któreś przesunięcie trafia w biały piksel.
+4. Wynik w historii (można cofnąć); status: „dylatacja (element 7×3)”.
+
+### 5.10. Binaryzacja Sauvoli
+
+1. Zakładka „Metody”, wybór „Sauvola” → `showThresholdParams` buduje pola:
+   okno 15, k 0,5, R 128.
+2. Klik „Binaryzuj” → `read()` sprawdza pola → `Thresholding.binarize`:
+   obraz szarości → obrazy całkowe → m i s dla każdego piksela →
+   T = m·(1 + k·(s/R − 1)) → biały, gdy v ≥ T.
+3. Status: „Sauvola (lokalna) (window=15, k=0.5, R=128): 33 ms”.
+
 ## 6. Słowniczek pojęć
 
 | Pojęcie | Wyjaśnienie |
 |---------|-------------|
+| **Filtr (sąsiedztwa)** | Przekształcenie, w którym nowy piksel zależy od okna pikseli wokół niego. |
+| **Okno** | Kwadrat k × k pikseli wokół przetwarzanego piksela (k nieparzyste, żeby miał środek). |
+| **Mediana** | Wartość środkowa po posortowaniu. |
+| **Gradient / krawędź** | Szybkość zmiany jasności; krawędź to miejsce dużego gradientu. |
+| **Morfologia** | Operacje na kształtach w obrazie binarnym za pomocą elementu strukturyzującego. |
+| **Element strukturyzujący** | Mała maska (np. krzyż 3×3) przykładana do każdego piksela w dylatacji/erozji. |
+| **Dylatacja / erozja** | Rozrastanie / kurczenie obiektów (białych). |
+| **Otwarcie / zamknięcie** | Erozja+dylatacja (usuwa drobny szum) / dylatacja+erozja (zamyka dziury). |
+| **Binaryzacja lokalna** | Osobny próg dla każdego piksela, liczony z jego okna. |
+| **Odchylenie standardowe** | Miara rozrzutu wartości wokół średniej. |
+| **Obraz całkowy** | Tablica sum narastających – suma dowolnego prostokąta z 4 odczytów. |
+| **Entropia** | Miara nieprzewidywalności rozkładu; podstawa metody Kapura. |
 | **Zakładka** | Przycisk w pionowym pasku po lewej; pokazuje jeden panel narzędzi. |
 | **Zmienna CSS** | Nazwana wartość w stylach, np. `--accent: #4f8cff`; zmiana w jednym miejscu zmienia kolor w całej aplikacji. |
 | **Piksel** | Najmniejszy punkt obrazu; ma kolor zapisany jako R, G, B (+ A). |

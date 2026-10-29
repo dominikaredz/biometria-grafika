@@ -20,6 +20,7 @@
 
   const {
     ImageIO, ImageProcessing, Histogram, Shapes, UI, ColorPicker, DrawingTool, ShapeForm, ColorSpaces,
+    Filters, Thresholding, StructuringElementEditor,
   } = window.BioEditor;
 
   const MAX_UNDO = 30;
@@ -58,6 +59,15 @@
     btnAdjustApply: $('btn-adjust-apply'),
     btnAdjustCancel: $('btn-adjust-cancel'),
     btnInvert: $('btn-invert'),
+    thrMethod: $('thr-method'),
+    thrHint: $('thr-hint'),
+    thrParams: $('thr-params'),
+    btnThrApply: $('btn-thr-apply'),
+    blurSize: $('blur-size'),
+    btnBlur: $('btn-blur'),
+    medianSize: $('median-size'),
+    btnMedian: $('btn-median'),
+    btnSobel: $('btn-sobel'),
     btnFlatten: $('btn-flatten'),
     threshold: $('threshold'),
     thresholdValue: $('threshold-value'),
@@ -81,6 +91,9 @@
   const binChannel = UI.createSegmented($('bin-channel'));
   const histView = UI.createSegmented($('hist-channel'), redrawHistogram);
   const histOpsMode = UI.createSegmented($('hist-ops-mode'));
+  const sobelMode = UI.createSegmented($('sobel-mode'));
+  const seEditor = StructuringElementEditor.create($('se-editor'));
+  const morphButtons = Array.from(document.querySelectorAll('[data-morph]'));
   const tabs = UI.createTabs($('tool-tabs'), document.querySelector('.sidebar'), {
     storageKey: 'bioEditor.tab',
   });
@@ -191,6 +204,7 @@
     UI.setEnabled([
       el.btnSave, el.btnBinarize, el.btnOtsu, el.btnStretch, el.btnEqualize,
       el.btnInvert, el.brightness, el.contrast,
+      el.btnThrApply, el.btnBlur, el.btnMedian, el.btnSobel, ...morphButtons,
     ], hasImage);
     UI.setEnabled([el.btnAdjustApply, el.btnAdjustCancel], state.preview !== null);
     UI.setEnabled([el.btnUndo], state.undoStack.length > 0);
@@ -368,6 +382,81 @@
       (src) => ImageProcessing.equalizeHistogram(src, { mode }),
       `wyrównanie histogramu (${mode === 'joint' ? 'wspólnie' : 'kanały osobno'})`
     );
+  });
+
+  // ---------- Binaryzacja – metody (Biometria, zad. 3) ----------
+
+  const THRESHOLD_HINTS = {
+    kapur: 'Próg globalny maksymalizujący sumę entropii tła i obiektu.',
+    niblack: 'T = m + k·s (m, s – średnia i odchylenie w oknie). k < 0 dla ciemnego tekstu na jasnym tle.',
+    sauvola: 'T = m·(1 + k·(s/R − 1)). Mniej szumu w tle niż Niblack – dobra dla dokumentów.',
+    phansalkar: 'T = m·(1 + p·e^(−q·m) + k·(s/R − 1)) na wartościach 0–1. Dla obrazów o niskim kontraście.',
+    bernsen: 'T = (min + max)/2 w oknie, gdy kontrast max − min ≥ L; jednolite okna wg progu globalnego.',
+    compensated: 'Usuwa nierówne oświetlenie (średnia z dużego okna), potem jeden próg Otsu.',
+  };
+
+  for (const [key, m] of Object.entries(Thresholding.METHODS)) {
+    el.thrMethod.add(new Option(m.label, key));
+  }
+  let thrFields = null;
+  function showThresholdParams() {
+    const method = el.thrMethod.value;
+    thrFields = UI.createParamFields(el.thrParams, Thresholding.METHODS[method].params, 'thr');
+    el.thrHint.textContent = THRESHOLD_HINTS[method];
+  }
+  el.thrMethod.addEventListener('change', showThresholdParams);
+  showThresholdParams();
+
+  el.btnThrApply.addEventListener('click', () => {
+    const params = thrFields.read();
+    if (!params) return;
+    const method = el.thrMethod.value;
+    let info = '';
+    applyOperation((src) => {
+      const result = Thresholding.binarize(src, method, params);
+      info = result.info;
+      return result.image;
+    }, () => `${Thresholding.METHODS[method].label} (${info})`);
+  });
+
+  // ---------- Filtry i morfologia (Grafika, zad. 2) ----------
+
+  /** Rozmiar okna z pola: liczba nieparzysta 3–51; przy błędzie podświetla pole. */
+  function readWindowSize(input) {
+    const v = Number(input.value);
+    const ok = input.value.trim() !== '' && Number.isInteger(v) && v >= 3 && v <= 51 && v % 2 === 1;
+    input.classList.toggle('invalid', !ok);
+    return ok ? v : null;
+  }
+
+  el.btnBlur.addEventListener('click', () => {
+    const size = readWindowSize(el.blurSize);
+    if (size === null) return;
+    applyOperation((src) => Filters.meanFilter(src, { size }), `filtr uśredniający ${size}×${size}`);
+  });
+
+  el.btnMedian.addEventListener('click', () => {
+    const size = readWindowSize(el.medianSize);
+    if (size === null) return;
+    applyOperation((src) => Filters.medianFilter(src, { size }), `filtr medianowy ${size}×${size}`);
+  });
+
+  el.btnSobel.addEventListener('click', () => {
+    const mode = sobelMode.value;
+    const name = { magnitude: '|G|', x: 'Gx', y: 'Gy' }[mode];
+    applyOperation((src) => Filters.sobel(src, { mode }), `Sobel (${name})`);
+  });
+
+  const MORPH_LABELS = { dilate: 'dylatacja', erode: 'erozja', open: 'otwarcie', close: 'zamknięcie' };
+  morphButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const operation = btn.dataset.morph;
+      const element = seEditor.element;
+      applyOperation(
+        (src) => Filters.morphology(src, { operation, element }),
+        `${MORPH_LABELS[operation]} (element ${element.width}×${element.height})`
+      );
+    });
   });
 
   el.btnInvert.addEventListener('click', () => {
