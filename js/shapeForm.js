@@ -1,9 +1,28 @@
+/**
+ * shapeForm.js – pola tekstowe parametrów kształtu.
+ *
+ * Dwa zastosowania tego samego formularza:
+ *   - nic nie jest zaznaczone -> parametry NOWEGO kształtu (przycisk „Dodaj”),
+ *   - kształt jest zaznaczony -> jego parametry; „Zastosuj zmiany” modyfikuje
+ *     zaznaczony kształt, a „Dodaj jako nowy” tworzy kopię z wpisanymi wartościami.
+ *
+ * Pola generujemy dynamicznie z opisu Shapes.TYPES[typ].fields, więc nowy
+ * typ kształtu nie wymaga zmian w HTML.
+ */
 (function (global) {
   'use strict';
 
   const BioEditor = (global.BioEditor = global.BioEditor || {});
   const { Shapes } = BioEditor;
 
+  /**
+   * @param {HTMLElement} root  kontener z elementami data-role
+   * @param {object} handlers
+   * @param {(type: string, params: object) => void} handlers.onAdd
+   * @param {(params: object) => void} handlers.onApply
+   * @param {() => void} handlers.onRestyle
+   * @param {() => void} handlers.onDelete
+   */
   function create(root, handlers) {
     const ref = (name) => root.querySelector(`[data-role="${name}"]`);
     const el = {
@@ -19,9 +38,10 @@
 
     let type = null;
     let hasSelection = false;
-
+    /** key -> <input> dla bieżącego typu */
     let inputs = {};
 
+    /** Buduje siatkę etykieta + pole liczbowe dla danego typu. */
     function buildFields(nextType) {
       el.fields.replaceChildren();
       inputs = {};
@@ -46,6 +66,12 @@
       type = nextType;
     }
 
+    /**
+     * Pokazuje formularz.
+     * @param {{type: string, values: object, selected: boolean}|null} view
+     *   null -> brak formularza, tylko podpowiedź (hint)
+     * @param {string} [hint]
+     */
     function show(view, hint = '') {
       el.hint.textContent = hint;
       el.hint.hidden = !hint;
@@ -57,6 +83,8 @@
         return;
       }
 
+      // Wpisane ręcznie wartości nowego kształtu zostawiamy, dopóki
+      // użytkownik nie zmieni typu ani nie zaznaczy innego obiektu.
       const keepTyped = !view.selected && !hasSelection && view.type === type;
       if (view.type !== type) buildFields(view.type);
       if (!keepTyped) {
@@ -75,6 +103,7 @@
       el.remove.hidden = !view.selected;
     }
 
+    /** Odczytuje pola; przy błędnej wartości podświetla pole i zwraca null. */
     function read() {
       const params = {};
       let ok = true;
@@ -100,7 +129,7 @@
     el.apply.addEventListener('click', () => submit(true));
     el.restyle.addEventListener('click', () => handlers.onRestyle());
     el.remove.addEventListener('click', () => handlers.onDelete());
-
+    // Enter w polu = zatwierdzenie (zmiana zaznaczonego albo dodanie nowego)
     el.fields.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') submit(hasSelection);
     });
