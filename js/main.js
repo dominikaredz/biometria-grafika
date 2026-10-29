@@ -1,3 +1,20 @@
+/**
+ * main.js – "klej" aplikacji: stan, obsługa zdarzeń, łączenie modułów.
+ *
+ * Dokument składa się z dwóch warstw:
+ *   - current – obraz rastrowy (ImageData), na nim działają operacje
+ *               z biometrii (binaryzacja itd.),
+ *   - shapes  – lista kształtów wektorowych rysowanych NAD obrazem.
+ * Na ekranie i w zapisanym pliku widać ich złożenie (Shapes.composite).
+ *
+ * Ponieważ ani funkcje przetwarzania, ani operacje na kształtach nie
+ * modyfikują danych wejściowych (zwracają nowe obiekty), historia Cofnij
+ * to po prostu stos par { image, shapes } – bez klonowania.
+ *   - original  – obraz po wczytaniu (nigdy się nie zmienia),
+ *   - undoStack – poprzednie stany (max MAX_UNDO),
+ *   - preview   – niezatwierdzony podgląd (suwaki jasności/kontrastu);
+ *                 gdy jest ustawiony, wyświetlamy go zamiast current.
+ */
 (function () {
   'use strict';
 
@@ -15,9 +32,10 @@
     shapes: [],
     undoStack: [],
     preview: null,
-    histogram: null,
+    histogram: null, // zbuforowany wynik Histogram.compute dla wyświetlanego obrazu
   };
 
+  // ---------- Elementy DOM ----------
   const $ = (id) => document.getElementById(id);
   const el = {
     fileInput: $('file-input'),
@@ -68,12 +86,14 @@
   });
   const colorPicker = ColorPicker.create($('panel-color'), { onChange: showDrawingColor });
 
+  /** Próbka bieżącego koloru w panelu Kształty (kliknięcie otwiera zakładkę Kolor). */
   function showDrawingColor({ r, g, b }) {
     $('shape-color-swatch').style.background = `rgb(${r}, ${g}, ${b})`;
     $('shape-color-hex').textContent = ColorSpaces.rgbToHex(r, g, b);
   }
   $('shape-color').addEventListener('click', () => tabs.select('color'));
 
+  /** Styl nowych kształtów: kolor z selektora + grubość z pola. */
   function currentStyle() {
     const width = Math.round(Number(el.shapeWidth.value));
     return { color: colorPicker.rgb, width: Number.isFinite(width) ? Math.min(Math.max(width, 1), 50) : 1 };
@@ -108,12 +128,23 @@
     onDelete: () => drawing.deleteSelected(),
   });
 
+  // ---------- Renderowanie ----------
+
+  /** Rysuje histogram z zapamiętanych danych (bez ponownego liczenia). */
   function redrawHistogram() {
     Histogram.draw(el.histCanvas, state.histogram, histView.value, {
       logScale: el.histLog.checked,
     });
   }
 
+  /**
+   * Wyświetla obraz złożony z warstwy rastrowej i kształtów.
+   * Histogram liczymy z obrazu z kształtami, ale PRZED dorysowaniem
+   * uchwytów zaznaczenia (te są tylko pomocą na ekranie).
+   *
+   * @param {{histogram?: boolean}} [options] histogram: false – szybkie
+   *   odświeżenie w trakcie przeciągania myszą (histogram liczymy na końcu)
+   */
   function render({ histogram = true } = {}) {
     if (!state.current) return;
     const img = Shapes.composite(state.preview || state.current, drawing.getVisibleShapes());
@@ -126,6 +157,11 @@
     ImageIO.drawImageData(el.imageCanvas, img);
   }
 
+  /**
+   * Odświeżenie "przy najbliższej klatce". Zdarzeń pointermove może być
+   * kilkaset na sekundę, a ekran odświeża się ~60 razy – requestAnimationFrame
+   * łączy je w jedno rysowanie na klatkę.
+   */
   let renderQueued = false;
   let renderHistogramQueued = false;
   function scheduleRender(withHistogram = false) {
@@ -140,6 +176,7 @@
     });
   }
 
+  /** Wypisuje zakres wartości (min–max) kanałów wyświetlanego obrazu. */
   function showImageRange() {
     const parts = ['r', 'g', 'b'].map((k) => {
       const range = ImageProcessing.histogramRange(state.histogram[k]);
@@ -148,6 +185,7 @@
     el.imageRange.textContent = 'Zakres w obrazie: ' + parts.join(' · ');
   }
 
+  /** Włącza/wyłącza przyciski zależnie od stanu aplikacji. */
   function updateControls() {
     const hasImage = state.current !== null;
     UI.setEnabled([
@@ -162,6 +200,7 @@
     el.placeholder.hidden = hasImage;
   }
 
+  /** Pokazuje w polach tekstowych parametry zaznaczonego albo nowego kształtu. */
   function syncShapeForm() {
     if (!state.current) {
       shapeForm.show(null, 'Otwórz obraz albo utwórz nową kanwę, aby rysować.');
@@ -185,6 +224,7 @@
     return `${state.fileName} • ${width}×${height} px${shapes}` + (extra ? ' • ' + extra : '');
   }
 
+  /** Odrzuca niezatwierdzony podgląd jasności/kontrastu i zeruje suwaki. */
   function clearPreview() {
     state.preview = null;
     el.brightness.value = '0';
@@ -193,6 +233,7 @@
     el.contrastValue.textContent = '0';
   }
 
+  /** Zapisuje nowy stan dokumentu, odkładając poprzedni na stos Cofnij. */
   function commit(image, shapes = state.shapes) {
     clearPreview();
     state.undoStack.push({ image: state.current, shapes: state.shapes });
@@ -201,6 +242,7 @@
     state.shapes = shapes;
   }
 
+  /** Zmiana listy kształtów (z myszy lub z pól tekstowych). */
   function commitShapes(shapes, selectIndex, label) {
     commit(state.current, shapes);
     drawing.select(selectIndex);
@@ -217,6 +259,7 @@
     commitShapes(shapes, i, label);
   }
 
+  /** Ustawia nowy dokument (wczytany plik lub pusta kanwa). */
   function openDocument(imageData, fileName) {
     state.fileName = fileName;
     state.original = imageData;
@@ -231,6 +274,8 @@
     UI.setStatus(el.status, describe());
   }
 
+  // ---------- Obsługa zdarzeń ----------
+
   el.btnOpen.addEventListener('click', () => el.fileInput.click());
 
   el.fileInput.addEventListener('change', async () => {
@@ -243,7 +288,7 @@
     } catch (err) {
       UI.setStatus(el.status, 'Błąd: ' + err.message);
     }
-    el.fileInput.value = '';
+    el.fileInput.value = ''; // pozwala wczytać ten sam plik ponownie
   });
 
   el.btnNew.addEventListener('click', () => {
@@ -251,6 +296,7 @@
   });
 
   el.btnSave.addEventListener('click', () => {
+    // Zapisujemy obraz z kształtami (i podglądem), ale bez uchwytów zaznaczenia
     const img = Shapes.composite(state.preview || state.current, state.shapes);
     ImageIO.saveImageDataAsPng(img, state.fileName + '_edit.png');
   });
@@ -259,6 +305,13 @@
     el.thresholdValue.textContent = el.threshold.value;
   });
 
+  /**
+   * Wykonuje operację na warstwie obrazu (kształty zostają nad nim),
+   * zapisuje wynik w historii i wypisuje czas na pasku statusu.
+   *
+   * @param {(src: ImageData) => ImageData} operation
+   * @param {string | (() => string)} label opis do paska statusu
+   */
   function applyOperation(operation, label) {
     const t0 = performance.now();
     const result = operation(state.current);
@@ -269,6 +322,7 @@
     UI.setStatus(el.status, describe(`${typeof label === 'function' ? label() : label}: ${ms} ms`));
   }
 
+  /** Odczytuje liczbę 0–255 z pola; przy błędzie podświetla pole i zwraca null. */
   function readLevel(input) {
     const v = Number(input.value);
     const ok = input.value.trim() !== '' && Number.isFinite(v) && v >= 0 && v <= 255;
@@ -289,6 +343,7 @@
     const channel = binChannel.value;
     let threshold;
     applyOperation((src) => {
+      // Histogram liczymy z warstwy obrazu (bez kształtów), tak jak binaryzację
       threshold = ImageProcessing.otsuThreshold(Histogram.compute(src)[channel]);
       return ImageProcessing.binarize(src, { channel, threshold });
     }, () => `binaryzacja Otsu (${channel}, wyznaczony próg ${threshold})`);
@@ -319,6 +374,7 @@
     applyOperation(ImageProcessing.invert, 'negatyw');
   });
 
+  /** Podgląd na żywo: liczymy obraz z suwaków, ale nie zapisujemy go w historii. */
   function updateAdjustPreview() {
     const brightness = Number(el.brightness.value);
     const contrast = Number(el.contrast.value);
@@ -373,7 +429,7 @@
 
   el.btnReset.addEventListener('click', () => {
     if (state.current === state.original && state.shapes.length === 0) return;
-    commit(state.original, []);
+    commit(state.original, []); // reset też można cofnąć
     drawing.select(-1);
     render();
     updateControls();
@@ -382,6 +438,7 @@
 
   el.histLog.addEventListener('change', redrawHistogram);
 
+  // Skróty klawiszowe kanwy (pomijamy, gdy użytkownik pisze w polu tekstowym)
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, textarea, select')) return;
     if (e.key === 'Escape') {
@@ -393,8 +450,9 @@
     }
   });
 
+  // ---------- Start ----------
   el.shapeToolHint.textContent = TOOL_HINTS[toolSelector.value];
-  redrawHistogram();
+  redrawHistogram(); // pusty wykres z osią, zanim wczytamy obraz
   syncShapeForm();
   updateControls();
 })();
