@@ -105,33 +105,48 @@
   // ---------- Filtr medianowy ----------
 
   /**
-   * Filtr medianowy z oknem size × size (każdy kanał osobno).
+   * Zasięg okna o długości n wokół piksela: ile pól na lewo/w górę (before)
+   * i na prawo/w dół (after). Dla n nieparzystego okno jest symetryczne
+   * (n = 5 → 2 + 1 + 2); dla parzystego przesunięte o pół piksela
+   * w prawo/w dół (n = 4 → 1 + 1 + 2), bo piksel nie ma "środka między polami".
+   */
+  function windowExtent(n) {
+    const before = (n - 1) >> 1;
+    return { before, after: n - 1 - before };
+  }
+
+  /**
+   * Filtr medianowy z oknem width × height (każdy kanał osobno).
+   * Okno może mieć dowolne wymiary – także prostokątne (np. 9×1 usuwa
+   * zakłócenia tylko w poziomie) i parzyste.
    *
    * Mediana = wartość środkowa po posortowaniu wartości z okna. Dobrze
    * usuwa szum typu "sól i pieprz" (pojedyncze białe/czarne piksele),
    * bo skrajne wartości trafiają na koniec listy i nie wpływają na wynik,
    * a przy tym – inaczej niż średnia – nie rozmywa krawędzi.
+   * Przy parzystej liczbie pól bierzemy górną z dwóch wartości środkowych.
    *
    * Sortowanie okna w każdym pikselu byłoby drogie. Używamy algorytmu
    * Huanga: dla okna trzymamy HISTOGRAM jego wartości (256 liczników).
    * Przesuwając okno o 1 piksel w prawo, usuwamy z histogramu kolumnę,
-   * która wypadła, i dodajemy kolumnę, która weszła (2·size operacji).
+   * która wypadła, i dodajemy kolumnę, która weszła (2·height operacji).
    * Medianę śledzimy wskaźnikiem `med` i licznikiem `lt` = ile wartości
    * w oknie jest mniejszych od `med`; po każdym przesunięciu wskaźnik
    * przesuwa się zwykle tylko o kilka pozycji.
    *
-   * Koszt: O(W·H·size) zamiast O(W·H·size²·log size).
+   * Koszt: O(W·H·height) zamiast O(W·H·width·height·log(width·height)).
    *
    * @param {ImageData} src
-   * @param {{size: number}} options rozmiar okna (nieparzysty, >= 1)
+   * @param {{size?: number, width?: number, height?: number}} options
+   *   wymiary okna (>= 1); `size` = okno kwadratowe size × size
    * @returns {ImageData} nowy obraz
    */
-  function medianFilter(src, { size }) {
+  function medianFilter(src, { size, width = size, height = size }) {
     const W = src.width;
     const H = src.height;
-    const r = size >> 1;
-    const n = 2 * r + 1;
-    const half = (n * n) >> 1; // mediana = wartość, przed którą jest `half` mniejszych
+    const ex = windowExtent(width);
+    const ey = windowExtent(height);
+    const half = (width * height) >> 1; // mediana = wartość, przed którą jest `half` mniejszych
     const s = src.data;
     const out = new Uint8ClampedArray(s.length);
     const hist = new Uint32Array(256);
@@ -141,8 +156,8 @@
       for (let y = 0; y < H; y++) {
         // Histogram pierwszego okna w wierszu
         hist.fill(0);
-        for (let dy = -r; dy <= r; dy++) {
-          for (let dx = -r; dx <= r; dx++) hist[px(dx, y + dy, c)]++;
+        for (let dy = -ey.before; dy <= ey.after; dy++) {
+          for (let dx = -ex.before; dx <= ex.after; dx++) hist[px(dx, y + dy, c)]++;
         }
         let med = 0;
         let lt = 0;
@@ -152,10 +167,10 @@
           out[(y * W + x) * 4 + c] = med;
           if (x === W - 1) break;
 
-          // Przesunięcie okna: kolumna x − r wypada, kolumna x + r + 1 wchodzi
-          for (let dy = -r; dy <= r; dy++) {
-            const vOut = px(x - r, y + dy, c);
-            const vIn = px(x + r + 1, y + dy, c);
+          // Przesunięcie okna: kolumna x − before wypada, kolumna x + after + 1 wchodzi
+          for (let dy = -ey.before; dy <= ey.after; dy++) {
+            const vOut = px(x - ex.before, y + dy, c);
+            const vIn = px(x + ex.after + 1, y + dy, c);
             hist[vOut]--;
             if (vOut < med) lt--;
             hist[vIn]++;
@@ -344,12 +359,240 @@
     return binaryToImage(bin, src);
   }
 
+  // ---------- Pikselizacja, Kuwahara, MinRGB, Predator ----------
+
+  /**
+   * Pikselizacja: obraz dzielimy na prostokątne bloki blockW × blockH
+   * (od lewego górnego rogu) i każdy blok wypełniamy ŚREDNIM kolorem jego
+   * pikseli. Bloki przy prawym i dolnym brzegu mogą być mniejsze.
+   *
+   * Dwa przebiegi: najpierw sumujemy R, G, B w każdym bloku (tablice sum
+   * o rozmiarze liczby bloków), potem wpisujemy średnie. Koszt: O(W·H),
+   * niezależnie od rozmiaru bloku.
+   *
+   * @param {ImageData} src
+   * @param {{blockW: number, blockH: number}} options rozmiar bloku (>= 1)
+   * @returns {ImageData} nowy obraz
+   */
+  function pixelate(src, { blockW, blockH }) {
+    const W = src.width;
+    const H = src.height;
+    const s = src.data;
+    const bx = Math.ceil(W / blockW);
+    const by = Math.ceil(H / blockH);
+    const sums = new Float64Array(bx * by * 3);
+    const counts = new Uint32Array(bx * by);
+
+    for (let y = 0; y < H; y++) {
+      const rowBlock = ((y / blockH) | 0) * bx;
+      for (let x = 0; x < W; x++) {
+        const b = rowBlock + ((x / blockW) | 0);
+        const i = (y * W + x) * 4;
+        sums[b * 3] += s[i];
+        sums[b * 3 + 1] += s[i + 1];
+        sums[b * 3 + 2] += s[i + 2];
+        counts[b]++;
+      }
+    }
+
+    const out = new Uint8ClampedArray(s.length);
+    for (let y = 0; y < H; y++) {
+      const rowBlock = ((y / blockH) | 0) * bx;
+      for (let x = 0; x < W; x++) {
+        const b = rowBlock + ((x / blockW) | 0);
+        const i = (y * W + x) * 4;
+        out[i] = sums[b * 3] / counts[b];
+        out[i + 1] = sums[b * 3 + 1] / counts[b];
+        out[i + 2] = sums[b * 3 + 2] / counts[b];
+        out[i + 3] = s[i + 3];
+      }
+    }
+    return new ImageData(out, W, H);
+  }
+
+  /**
+   * Filtr Kuwahary – wygładzanie, które ZACHOWUJE krawędzie (efekt
+   * "obrazu malowanego farbą").
+   *
+   * Okno size × size wokół piksela (size = 2r + 1) dzielimy na 4 nakładające
+   * się kwadraty (r + 1) × (r + 1), każdy zawiera piksel środkowy:
+   *
+   *   ┌───┬───┐
+   *   │ A │ B │   A – lewy górny, B – prawy górny,
+   *   ├───●───┤   C – lewy dolny, D – prawy dolny
+   *   │ C │ D │   (● – piksel środkowy, należy do wszystkich czterech)
+   *   └───┴───┘
+   *
+   * Dla każdego kwadratu liczymy średnią i wariancję jasności. Wynik =
+   * średni kolor kwadratu o NAJMNIEJSZEJ wariancji, czyli najbardziej
+   * jednolitego. Przy krawędzi kwadrat leżący w poprzek krawędzi ma dużą
+   * wariancję i zostaje pominięty – dlatego krawędź się nie rozmywa.
+   *
+   * Średnie i wariancje liczymy z obrazów całkowych (sumy R, G, B, jasności
+   * i kwadratów jasności): suma dowolnego prostokąta = 4 odczyty.
+   * Koszt: O(W·H), niezależnie od rozmiaru okna.
+   *
+   * @param {ImageData} src
+   * @param {{size: number}} options rozmiar okna (nieparzysty, >= 3)
+   * @returns {ImageData} nowy obraz
+   */
+  function kuwahara(src, { size }) {
+    const W = src.width;
+    const H = src.height;
+    const r = size >> 1;
+    const s = src.data;
+    const W1 = W + 1;
+    const n1 = W1 * (H + 1);
+    const iR = new Float64Array(n1);
+    const iG = new Float64Array(n1);
+    const iB = new Float64Array(n1);
+    const iY = new Float64Array(n1);
+    const iY2 = new Float64Array(n1);
+
+    // Obrazy całkowe: I(x+1, y+1) = suma pikseli w [0..x] × [0..y]
+    for (let y = 0; y < H; y++) {
+      let sr = 0, sg = 0, sb = 0, sy = 0, sy2 = 0;
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        const lum = (s[i] + s[i + 1] + s[i + 2]) / 3;
+        sr += s[i];
+        sg += s[i + 1];
+        sb += s[i + 2];
+        sy += lum;
+        sy2 += lum * lum;
+        const k = (y + 1) * W1 + x + 1;
+        const up = y * W1 + x + 1;
+        iR[k] = iR[up] + sr;
+        iG[k] = iG[up] + sg;
+        iB[k] = iB[up] + sb;
+        iY[k] = iY[up] + sy;
+        iY2[k] = iY2[up] + sy2;
+      }
+    }
+    // Suma prostokąta [x0, x1] × [y0, y1] (włącznie, już przycięte do obrazu)
+    const rect = (I, x0, y0, x1, y1) =>
+      I[(y1 + 1) * W1 + x1 + 1] - I[y0 * W1 + x1 + 1] - I[(y1 + 1) * W1 + x0] + I[y0 * W1 + x0];
+
+    const out = new Uint8ClampedArray(s.length);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const xl = Math.max(0, x - r);
+        const xr = Math.min(W - 1, x + r);
+        const yt = Math.max(0, y - r);
+        const yb = Math.min(H - 1, y + r);
+        // Cztery kwadraty: [x0, y0, x1, y1]
+        const quads = [
+          [xl, yt, x, y],
+          [x, yt, xr, y],
+          [xl, y, x, yb],
+          [x, y, xr, yb],
+        ];
+        let best = 0;
+        let bestVar = Infinity;
+        for (let q = 0; q < 4; q++) {
+          const [x0, y0, x1, y1] = quads[q];
+          const n = (x1 - x0 + 1) * (y1 - y0 + 1);
+          const m = rect(iY, x0, y0, x1, y1) / n;
+          const v = rect(iY2, x0, y0, x1, y1) / n - m * m;
+          if (v < bestVar) {
+            bestVar = v;
+            best = q;
+          }
+        }
+        const [x0, y0, x1, y1] = quads[best];
+        const n = (x1 - x0 + 1) * (y1 - y0 + 1);
+        const i = (y * W + x) * 4;
+        out[i] = rect(iR, x0, y0, x1, y1) / n;
+        out[i + 1] = rect(iG, x0, y0, x1, y1) / n;
+        out[i + 2] = rect(iB, x0, y0, x1, y1) / n;
+        out[i + 3] = s[i + 3];
+      }
+    }
+    return new ImageData(out, W, H);
+  }
+
+  /**
+   * MinRGB (w GIMP-ie: "Maximum RGB" w trybie minimum): w każdym pikselu
+   * zostaje tylko kanał o NAJMNIEJSZEJ wartości, pozostałe są zerowane.
+   * Np. (200, 50, 120) → (0, 50, 0). Przy remisie zostają wszystkie
+   * kanały o tej samej najmniejszej wartości (szary piksel się nie zmienia).
+   *
+   * @param {ImageData} src
+   * @returns {ImageData} nowy obraz
+   */
+  function minRgb(src) {
+    const s = src.data;
+    const out = new Uint8ClampedArray(s.length);
+    for (let i = 0; i < s.length; i += 4) {
+      const m = Math.min(s[i], s[i + 1], s[i + 2]);
+      out[i] = s[i] === m ? m : 0;
+      out[i + 1] = s[i + 1] === m ? m : 0;
+      out[i + 2] = s[i + 2] === m ? m : 0;
+      out[i + 3] = s[i + 3];
+    }
+    return new ImageData(out, src.width, src.height);
+  }
+
+  /**
+   * Sobel osobno dla każdego kanału R, G, B (krawędzie kolorowe),
+   * siła krawędzi mnożona przez `amount` i przycinana do 255.
+   * Te same maski co w sobel(), ale bez zamiany na szarość.
+   */
+  function sobelRgb(src, { amount }) {
+    const W = src.width;
+    const H = src.height;
+    const s = src.data;
+    const out = new Uint8ClampedArray(s.length);
+    for (let y = 0; y < H; y++) {
+      const ym = (y > 0 ? y - 1 : 0) * W;
+      const y0 = y * W;
+      const yp = (y < H - 1 ? y + 1 : y) * W;
+      for (let x = 0; x < W; x++) {
+        const xm = x > 0 ? x - 1 : 0;
+        const xp = x < W - 1 ? x + 1 : x;
+        for (let c = 0; c < 3; c++) {
+          const v = (p) => s[p * 4 + c];
+          const gx = (v(ym + xp) + 2 * v(y0 + xp) + v(yp + xp)) - (v(ym + xm) + 2 * v(y0 + xm) + v(yp + xm));
+          const gy = (v(yp + xm) + 2 * v(yp + x) + v(yp + xp)) - (v(ym + xm) + 2 * v(ym + x) + v(ym + xp));
+          out[(y0 + x) * 4 + c] = amount * Math.sqrt(gx * gx + gy * gy);
+        }
+        out[(y0 + x) * 4 + 3] = s[(y0 + x) * 4 + 3];
+      }
+    }
+    return new ImageData(out, W, H);
+  }
+
+  /**
+   * Filtr Predatora (jak skrypt "Predator" z GIMP-a) – efekt "widzenia
+   * termowizyjnego" z filmu. Trzy kroki w tej kolejności:
+   *   1. pikselizacja (bloki pixelSize × pixelSize) – uproszczenie obrazu
+   *      do dużych plam koloru,
+   *   2. MinRGB – w każdym pikselu zostaje tylko najsłabszy kanał, przez
+   *      co plamy dostają czyste, nasycone barwy (czerwień, zieleń, błękit),
+   *   3. Sobel na każdym kanale osobno – zostają świecące, kolorowe
+   *      krawędzie plam na czarnym tle (wzmocnione `amount` razy).
+   * pixelSize <= 1 pomija pikselizację.
+   *
+   * @param {ImageData} src
+   * @param {{pixelSize: number, amount: number}} options
+   * @returns {ImageData} nowy obraz
+   */
+  function predator(src, { pixelSize, amount }) {
+    const pixelated = pixelSize > 1 ? pixelate(src, { blockW: pixelSize, blockH: pixelSize }) : src;
+    return sobelRgb(minRgb(pixelated), { amount });
+  }
+
   BioEditor.Filters = {
     toGray,
     fromGray,
     meanFilter,
     medianFilter,
     sobel,
+    sobelRgb,
+    pixelate,
+    kuwahara,
+    minRgb,
+    predator,
     createStructuringElement,
     morphology,
   };

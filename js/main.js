@@ -20,7 +20,7 @@
 
   const {
     ImageIO, ImageProcessing, Histogram, Shapes, UI, ColorPicker, DrawingTool, ShapeForm, ColorSpaces,
-    Filters, Thresholding, StructuringElementEditor,
+    Filters, Thresholding, StructuringElementEditor, Convolution,
   } = window.BioEditor;
 
   const MAX_UNDO = 30;
@@ -68,6 +68,27 @@
     medianSize: $('median-size'),
     btnMedian: $('btn-median'),
     btnSobel: $('btn-sobel'),
+    convPreset: $('conv-preset'),
+    convGauss: $('conv-gauss'),
+    convGaussSize: $('conv-gauss-size'),
+    convGaussSigma: $('conv-gauss-sigma'),
+    convKernel: $('conv-kernel'),
+    convInfo: $('conv-info'),
+    convDivisor: $('conv-divisor'),
+    convOffset: $('conv-offset'),
+    convAbs: $('conv-abs'),
+    btnConv: $('btn-conv'),
+    medW: $('med-w'),
+    medH: $('med-h'),
+    btnMedRect: $('btn-med-rect'),
+    pixW: $('pix-w'),
+    pixH: $('pix-h'),
+    btnPixelate: $('btn-pixelate'),
+    kuwSize: $('kuw-size'),
+    btnKuwahara: $('btn-kuwahara'),
+    predSize: $('pred-size'),
+    predAmount: $('pred-amount'),
+    btnPredator: $('btn-predator'),
     btnFlatten: $('btn-flatten'),
     threshold: $('threshold'),
     thresholdValue: $('threshold-value'),
@@ -205,6 +226,7 @@
       el.btnSave, el.btnBinarize, el.btnOtsu, el.btnStretch, el.btnEqualize,
       el.btnInvert, el.brightness, el.contrast,
       el.btnThrApply, el.btnBlur, el.btnMedian, el.btnSobel, ...morphButtons,
+      el.btnConv, el.btnMedRect, el.btnPixelate, el.btnKuwahara, el.btnPredator,
     ], hasImage);
     UI.setEnabled([el.btnAdjustApply, el.btnAdjustCancel], state.preview !== null);
     UI.setEnabled([el.btnUndo], state.undoStack.length > 0);
@@ -457,6 +479,118 @@
         `${MORPH_LABELS[operation]} (element ${element.width}×${element.height})`
       );
     });
+  });
+
+  // ---------- Splot i efekty (Biometria, zad. 4) ----------
+
+  /**
+   * Odczytuje liczbę z pola i sprawdza zakres (opcjonalnie: całkowita,
+   * nieparzysta). Przy błędzie podświetla pole na czerwono i zwraca null.
+   */
+  function readNumber(input, { min, max, integer = false, odd = false }) {
+    const v = Number(input.value);
+    const ok = input.value.trim() !== '' && Number.isFinite(v) && v >= min && v <= max
+      && (!integer || Number.isInteger(v)) && (!odd || v % 2 === 1);
+    input.classList.toggle('invalid', !ok);
+    return ok ? v : null;
+  }
+
+  el.convPreset.add(new Option('Własna maska', 'custom'));
+  for (const [key, preset] of Object.entries(Convolution.PRESETS)) {
+    el.convPreset.add(new Option(preset.label, key));
+  }
+
+  /** Opis maski pod polem tekstowym: rozmiar, suma wag i użyty dzielnik. */
+  function showKernelInfo() {
+    const { kernel, error } = Convolution.parseKernel(el.convKernel.value);
+    el.convKernel.classList.toggle('invalid', Boolean(error));
+    if (error) {
+      el.convInfo.textContent = error;
+      return null;
+    }
+    const sum = Math.round(Convolution.kernelSum(kernel) * 1e4) / 1e4;
+    const div = el.convDivisor.value.trim() === '' ? `auto = ${sum !== 0 ? sum : 1}` : el.convDivisor.value;
+    el.convInfo.textContent = `Maska ${kernel.width}×${kernel.height}, suma wag ${sum}, dzielnik ${div}.`;
+    return kernel;
+  }
+
+  /** Wstawia gotową maskę (dla Gaussa – z rozmiaru i σ z pól). */
+  function loadPreset() {
+    const key = el.convPreset.value;
+    const preset = Convolution.PRESETS[key];
+    el.convGauss.hidden = !(preset && preset.gaussian);
+    if (!preset) return; // „Własna maska” – zostawiamy to, co jest w polu
+    let rows = preset.rows;
+    if (preset.gaussian) {
+      const size = readNumber(el.convGaussSize, { min: 3, max: 25, integer: true, odd: true });
+      const sigma = readNumber(el.convGaussSigma, { min: 0.3, max: 10 });
+      if (size === null || sigma === null) return;
+      rows = Convolution.gaussianKernel(size, sigma);
+    }
+    el.convKernel.value = Convolution.formatKernel(rows);
+    el.convDivisor.value = '';
+    el.convOffset.value = '0';
+    el.convAbs.checked = Boolean(preset.absolute);
+    showKernelInfo();
+  }
+
+  el.convPreset.addEventListener('change', loadPreset);
+  el.convGaussSize.addEventListener('change', loadPreset);
+  el.convGaussSigma.addEventListener('change', loadPreset);
+  el.convKernel.addEventListener('input', () => {
+    el.convPreset.value = 'custom'; // ręczna zmiana = własna maska
+    el.convGauss.hidden = true;
+    showKernelInfo();
+  });
+  el.convDivisor.addEventListener('input', showKernelInfo);
+  el.convPreset.value = 'gauss';
+  loadPreset();
+
+  el.btnConv.addEventListener('click', () => {
+    const kernel = showKernelInfo();
+    const divisorText = el.convDivisor.value.trim();
+    const divisor = divisorText === '' ? undefined : readNumber(el.convDivisor, { min: -1e9, max: 1e9 });
+    const offset = readNumber(el.convOffset, { min: -255, max: 255 });
+    if (!kernel || divisor === null || divisor === 0 || offset === null) {
+      if (divisor === 0) el.convDivisor.classList.add('invalid');
+      return;
+    }
+    const absolute = el.convAbs.checked;
+    const name = el.convPreset.value === 'custom' ? 'własna maska' : Convolution.PRESETS[el.convPreset.value].label;
+    applyOperation(
+      (src) => Convolution.convolve(src, { kernel, divisor, offset, absolute }),
+      `splot: ${name} ${kernel.width}×${kernel.height}`
+    );
+  });
+
+  el.btnMedRect.addEventListener('click', () => {
+    const width = readNumber(el.medW, { min: 1, max: 51, integer: true });
+    const height = readNumber(el.medH, { min: 1, max: 51, integer: true });
+    if (width === null || height === null) return;
+    applyOperation((src) => Filters.medianFilter(src, { width, height }), `filtr medianowy ${width}×${height}`);
+  });
+
+  el.btnPixelate.addEventListener('click', () => {
+    const blockW = readNumber(el.pixW, { min: 1, max: 256, integer: true });
+    const blockH = readNumber(el.pixH, { min: 1, max: 256, integer: true });
+    if (blockW === null || blockH === null) return;
+    applyOperation((src) => Filters.pixelate(src, { blockW, blockH }), `pikselizacja ${blockW}×${blockH}`);
+  });
+
+  el.btnKuwahara.addEventListener('click', () => {
+    const size = readNumber(el.kuwSize, { min: 3, max: 51, integer: true, odd: true });
+    if (size === null) return;
+    applyOperation((src) => Filters.kuwahara(src, { size }), `filtr Kuwahary ${size}×${size}`);
+  });
+
+  el.btnPredator.addEventListener('click', () => {
+    const pixelSize = readNumber(el.predSize, { min: 1, max: 64, integer: true });
+    const amount = readNumber(el.predAmount, { min: 0.5, max: 10 });
+    if (pixelSize === null || amount === null) return;
+    applyOperation(
+      (src) => Filters.predator(src, { pixelSize, amount }),
+      `filtr Predatora (piksel ${pixelSize}, siła ${amount})`
+    );
   });
 
   el.btnInvert.addEventListener('click', () => {

@@ -44,6 +44,14 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>
         <span>Korekta</span>
       </button>
+      <button type="button" role="tab" data-tab="convolution" aria-selected="false" title="Filtry splotowe: Gauss, Prewitt, Sobel, Laplasjan, własna maska">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/><path d="M9.3 9.3h5.4v5.4H9.3z" fill="currentColor" stroke="none"/></svg>
+        <span>Splot</span>
+      </button>
+      <button type="button" role="tab" data-tab="effects" aria-selected="false" title="Mediana (dowolna maska), pikselizacja, Kuwahara, Predator">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4z"/><circle cx="16.5" cy="16.5" r="3.5"/></svg>
+        <span>Efekty</span>
+      </button>
       <span class="tabbar-group">Grafika</span>
       <button type="button" role="tab" data-tab="color" aria-selected="false" title="Wybór koloru RGB / CMYK">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.5-.8 1.5-1.5 0-1.3-1-1.6-1-2.7 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.3 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7.5" r="1.2"/></svg>
@@ -153,6 +161,96 @@
           <button id="btn-adjust-cancel" class="btn" type="button" disabled>Wyzeruj</button>
           <button id="btn-invert" class="btn" type="button" disabled>Negatyw</button>
         </div>
+      </section>
+
+      <section class="panel" id="panel-convolution" data-tab-panel="convolution" hidden>
+        <h2>Filtr splotowy</h2>
+
+        <div class="field">
+          <label class="label" for="conv-preset">Gotowa maska</label>
+          <select id="conv-preset" class="input"></select>
+        </div>
+
+        <div class="field" id="conv-gauss" hidden>
+          <div class="range-inputs">
+            <label for="conv-gauss-size">rozmiar</label>
+            <input id="conv-gauss-size" class="input" type="number" min="3" max="25" step="2" value="5">
+            <label for="conv-gauss-sigma">σ</label>
+            <input id="conv-gauss-sigma" class="input" type="number" min="0.3" max="10" step="0.1" value="1">
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label" for="conv-kernel">Maska (wiersze w liniach, wagi oddzielone spacjami)</label>
+          <textarea id="conv-kernel" class="input mono" rows="6" spellcheck="false"></textarea>
+          <p class="hint" id="conv-info"></p>
+        </div>
+
+        <div class="field range-inputs">
+          <label for="conv-divisor">dzielnik</label>
+          <input id="conv-divisor" class="input" type="number" step="any" placeholder="auto">
+          <label for="conv-offset">+ stała</label>
+          <input id="conv-offset" class="input" type="number" step="1" value="0">
+        </div>
+
+        <label class="checkbox field">
+          <input id="conv-abs" type="checkbox">
+          Wartość bezwzględna wyniku (detektory krawędzi)
+        </label>
+
+        <button id="btn-conv" class="btn btn-primary btn-block" type="button" disabled>Zastosuj splot</button>
+        <p class="hint">Wynik piksela = suma (waga × sąsiad) / dzielnik + stała, osobno dla R, G, B.
+          Pusty dzielnik = suma wag (1, gdy suma wynosi 0). Maska może mieć dowolny rozmiar
+          (do 51×51); ułamki można wpisać jako 1/16.</p>
+      </section>
+
+      <section class="panel" id="panel-effects" data-tab-panel="effects" hidden>
+        <h2>Efekty</h2>
+
+        <div class="field">
+          <span class="label">Medianowy – maska dowolnego rozmiaru</span>
+          <div class="range-inputs">
+            <label for="med-w">szer.</label>
+            <input id="med-w" class="input" type="number" min="1" max="51" step="1" value="5">
+            <label for="med-h">wys.</label>
+            <input id="med-h" class="input" type="number" min="1" max="51" step="1" value="5">
+          </div>
+          <button id="btn-med-rect" class="btn btn-primary btn-block btn-spaced" type="button" disabled>Zastosuj medianę</button>
+        </div>
+
+        <div class="field">
+          <span class="label">Pikselizacja – rozmiar bloku</span>
+          <div class="range-inputs">
+            <label for="pix-w">szer.</label>
+            <input id="pix-w" class="input" type="number" min="1" max="256" step="1" value="8">
+            <label for="pix-h">wys.</label>
+            <input id="pix-h" class="input" type="number" min="1" max="256" step="1" value="8">
+          </div>
+          <button id="btn-pixelate" class="btn btn-primary btn-block btn-spaced" type="button" disabled>Pikselizuj</button>
+        </div>
+
+        <div class="field">
+          <span class="label">Filtr Kuwahary</span>
+          <div class="filter-row">
+            <label for="kuw-size">Okno</label>
+            <input id="kuw-size" class="input" type="number" min="3" max="51" step="2" value="5">
+            <button id="btn-kuwahara" class="btn btn-primary" type="button" disabled>Zastosuj</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">Filtr Predatora (pikselizacja → MinRGB → Sobel)</span>
+          <div class="range-inputs">
+            <label for="pred-size">piksel</label>
+            <input id="pred-size" class="input" type="number" min="1" max="64" step="1" value="4">
+            <label for="pred-amount">siła</label>
+            <input id="pred-amount" class="input" type="number" min="0.5" max="10" step="0.5" value="2">
+          </div>
+          <button id="btn-predator" class="btn btn-primary btn-block btn-spaced" type="button" disabled>Predator</button>
+        </div>
+
+        <p class="hint">Kuwahara wygładza, zachowując krawędzie (efekt obrazu malowanego).
+          Predator: piksel = rozmiar bloku pikselizacji (1 = bez), siła = wzmocnienie krawędzi.</p>
       </section>
 
       <section class="panel" id="panel-color" data-tab-panel="color" hidden>
@@ -419,6 +517,7 @@
   <script src="js/histogram.js"></script>
   <script src="js/filters.js"></script>
   <script src="js/thresholding.js"></script>
+  <script src="js/convolution.js"></script>
   <script src="js/colorSpaces.js"></script>
   <script src="js/raster.js"></script>
   <script src="js/shapes.js"></script>
