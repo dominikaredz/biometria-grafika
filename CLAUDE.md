@@ -57,8 +57,9 @@ css/style.css           – style, ciemny motyw; wszystkie kolory jako zmienne w
 js/imageIO.js           – wczytanie / wyświetlenie / zapis (BioEditor.ImageIO)
 js/imageProcessing.js   – algorytmy na ImageData (BioEditor.ImageProcessing)
 js/histogram.js         – liczenie i rysowanie histogramu (BioEditor.Histogram)
-js/filters.js           – filtry sąsiedztwa i morfologia (BioEditor.Filters)
+js/filters.js           – filtry sąsiedztwa (mediana, pikselizacja, Kuwahara, Predator…) i morfologia (BioEditor.Filters)
 js/thresholding.js      – Kapur, Niblack, Sauvola, Phansalkar, Bernsen, własna (BioEditor.Thresholding)
+js/convolution.js       – splot z dowolną maską, gotowe maski (BioEditor.Convolution)
 js/colorSpaces.js       – konwersje RGB/CMYK/HSV/HEX (BioEditor.ColorSpaces)
 js/raster.js            – rasteryzacja: Bresenham, midpoint (BioEditor.Raster)
 js/shapes.js            – model kształtów, uchwyty, hit-test, kompozycja (BioEditor.Shapes)
@@ -96,7 +97,7 @@ docs/                   – dokumentacja kodu (pliki-js.md – skrót, przewodni
   przez `state.preview` – nie trafia do historii, `commit()` go odrzuca.
 - Wyjątek od „czystości”: funkcje w `raster.js` rysują DO przekazanego bufora
   (modyfikują go) – wywoływać je tylko na kopii roboczej.
-- Moduły bez DOM (`colorSpaces.js`, `raster.js`, `shapes.js`, `filters.js`, `thresholding.js`, `histogram.js`, `imageProcessing.js`) eksportują do
+- Moduły bez DOM (`colorSpaces.js`, `raster.js`, `shapes.js`, `filters.js`, `thresholding.js`, `convolution.js`, `histogram.js`, `imageProcessing.js`) eksportują do
   `window` albo `globalThis`, więc można je załadować w Node przez `require`.
 - Kanały oznaczamy kluczami `'r' | 'g' | 'b' | 'avg'`; średnia to
   `((R + G + B) / 3) | 0` – ta sama definicja wszędzie.
@@ -114,7 +115,7 @@ docs/                   – dokumentacja kodu (pliki-js.md – skrót, przewodni
 
 - Uruchomienie: otworzyć `index.html` w przeglądarce (bez serwera).
 - Brak testów automatycznych i lintera. Weryfikacja ręczna w przeglądarce;
-  czyste funkcje (`imageProcessing.js`, `filters.js`, `thresholding.js`,
+  czyste funkcje (`imageProcessing.js`, `filters.js`, `thresholding.js`, `convolution.js`,
   `colorSpaces.js`, `raster.js`, `shapes.js`) można dodatkowo sprawdzić w Node
   (trzeba podstawić prostą klasę `ImageData`).
 - Nowa metoda binaryzacji = wpis w `Thresholding.METHODS` (parametry) + funkcja

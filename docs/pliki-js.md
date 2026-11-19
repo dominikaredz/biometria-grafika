@@ -18,6 +18,7 @@ index.html
   ├─ histogram.js         │
   ├─ filters.js           │
   ├─ thresholding.js      │
+  ├─ convolution.js       │
   ├─ colorSpaces.js       │
   ├─ raster.js            │
   ├─ shapes.js           ─┘
@@ -36,7 +37,8 @@ index.html
 | `imageIO.js` | `BioEditor.ImageIO` | Biometria 1 | Wczytanie pliku obrazu, wyświetlenie na kanwie, zapis do PNG, pusta biała kanwa. |
 | `imageProcessing.js` | `BioEditor.ImageProcessing` | Biometria 1, 2 | Algorytmy na pikselach: binaryzacja, tablice LUT, rozciąganie i wyrównanie histogramu, próg Otsu, jasność/kontrast, negatyw. |
 | `histogram.js` | `BioEditor.Histogram` | Biometria 1, 2 | Liczenie histogramów (R, G, B, średnia) i ręczne rysowanie wykresu na kanwie (kolory wykresu z motywu CSS). |
-| `filters.js` | `BioEditor.Filters` | Grafika 2 | Filtry sąsiedztwa: uśredniający, medianowy, Sobel; morfologia: dylatacja, erozja, otwarcie, zamknięcie; tworzenie elementu strukturyzującego. |
+| `filters.js` | `BioEditor.Filters` | Grafika 2, Biometria 4 | Filtry sąsiedztwa: uśredniający, medianowy (maska dowolnego rozmiaru), Sobel, pikselizacja, Kuwahara, MinRGB, Predator; morfologia: dylatacja, erozja, otwarcie, zamknięcie; tworzenie elementu strukturyzującego. |
+| `convolution.js` | `BioEditor.Convolution` | Biometria 4 | Splot z dowolną maską; gotowe maski (Gauss, Prewitt, Sobel, Laplasjany, wyostrzanie, płaskorzeźba); maska Gaussa z rozmiaru i σ; zamiana maski na tekst i z powrotem. |
 | `thresholding.js` | `BioEditor.Thresholding` | Biometria 3 | Zaawansowana binaryzacja: Kapur (entropia), Niblack, Sauvola, Phansalkar, Bernsen i własna „Otsu z kompensacją oświetlenia”; rejestr metod z parametrami. |
 | `colorSpaces.js` | `BioEditor.ColorSpaces` | Grafika 1b | Przeliczanie kolorów: RGB ↔ CMYK, RGB ↔ HSV, RGB → HEX. |
 | `raster.js` | `BioEditor.Raster` | Grafika 1a | Rysowanie pikseli: linia (Bresenham), okrąg (midpoint), prostokąt, wypełniony prostokąt. |
@@ -50,7 +52,7 @@ index.html
 
 ## Podział odpowiedzialności
 
-- **Algorytmy** (`imageProcessing.js`, `filters.js`, `thresholding.js`, `colorSpaces.js`, `raster.js`, `shapes.js`,
+- **Algorytmy** (`imageProcessing.js`, `filters.js`, `thresholding.js`, `convolution.js`, `colorSpaces.js`, `raster.js`, `shapes.js`,
   część `histogram.js`) nie dotykają przycisków ani strony. Dostają dane
   i zwracają wynik, więc można je sprawdzić osobno, np. w Node.
 - **Interfejs** (`ui.js`, `colorPicker.js`, `drawingTool.js`, `shapeForm.js`, `structuringElementEditor.js`)
@@ -61,7 +63,7 @@ index.html
 
 ## Interfejs
 
-Po lewej pionowy pasek zakładek (Biometria: Progowanie, Metody, Histogram, Korekta;
+Po lewej pionowy pasek zakładek (Biometria: Progowanie, Metody, Histogram, Korekta, Splot, Efekty;
 Grafika: Kolor, Kształty, Filtry, Morfologia). Sidebar pokazuje tylko panel wybranej zakładki,
 a histogram jest przypięty na dole i widoczny zawsze. Motyw jest ciemny;
 wszystkie kolory to zmienne CSS w `:root` w `css/style.css`.

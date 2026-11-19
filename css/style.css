@@ -481,6 +481,15 @@ input[type="range"] {
 
 select.input { cursor: pointer; }
 
+textarea.input.mono {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  resize: vertical;
+}
+
+
 .filter-row {
   display: grid;
   grid-template-columns: auto 1fr auto;

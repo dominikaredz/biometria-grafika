@@ -16,6 +16,7 @@ Spis treści:
    - [histogram.js](#43-histogramjs--liczenie-i-rysowanie-histogramu)
    - [filters.js](#412-filtersjs--filtry-sąsiedztwa-i-morfologia)
    - [thresholding.js](#413-thresholdingjs--zaawansowana-binaryzacja)
+   - [convolution.js](#415-convolutionjs--filtry-splotowe)
    - [colorSpaces.js](#44-colorspacesjs--przeliczanie-kolorów)
    - [raster.js](#45-rasterjs--rysowanie-linii-okręgów-i-prostokątów)
    - [shapes.js](#46-shapesjs--kształty-jako-obiekty)
@@ -41,7 +42,8 @@ Aplikacja działa w przeglądarce i składa się z trzech rodzajów plików:
 | JavaScript | `js/*.js` | **Instalacje** – co się dzieje po kliknięciu, jak liczone są piksele. |
 
 Układ ekranu: u góry pasek z operacjami na pliku i historią, po lewej
-pionowy pasek **zakładek** (Progowanie, Histogram, Korekta, Kolor, Kształty),
+pionowy pasek **zakładek** (Biometria: Progowanie, Metody, Histogram, Korekta,
+Splot, Efekty; Grafika: Kolor, Kształty, Filtry, Morfologia),
 obok panel wybranej zakładki z **histogramem przypiętym na dole**, a w środku
 obraz. Motyw jest ciemny.
 
@@ -260,7 +262,8 @@ kliknięcie przycisku
 W `index.html` skrypty są wczytywane w tej kolejności:
 
 1. `imageIO.js`, `imageProcessing.js`, `histogram.js` – biometria,
-2. `filters.js`, `thresholding.js` – filtry, morfologia i metody binaryzacji,
+2. `filters.js`, `thresholding.js`, `convolution.js` – filtry, morfologia,
+   metody binaryzacji i splot,
 3. `colorSpaces.js`, `raster.js`, `shapes.js` – algorytmy grafiki,
 4. `ui.js`, `colorPicker.js`, `drawingTool.js`, `shapeForm.js`,
    `structuringElementEditor.js` – interfejs,
@@ -1093,6 +1096,15 @@ moduły, trzyma stan dokumentu i obsługuje przyciski.
   `updateControls`, status „opis: X ms”.
 - **`readLevel(input)`** – odczytuje liczbę 0–255 z pola (rozciąganie);
   niepoprawne pole podświetla na czerwono.
+- **`readNumber(input, { min, max, integer, odd })`** – ogólny odczyt liczby
+  z pola z kontrolą zakresu (opcjonalnie: całkowita, nieparzysta); przy błędzie
+  podświetla pole i zwraca `null`.
+- **`loadPreset()`** – po wyborze gotowej maski wpisuje ją do pola tekstowego
+  (dla Gaussa – liczy ją z rozmiaru i σ), zeruje dzielnik i stałą, ustawia
+  opcję wartości bezwzględnej.
+- **`showKernelInfo()`** – parsuje maskę z pola; pokazuje jej rozmiar, sumę wag
+  i dzielnik albo komunikat błędu. Ręczna edycja maski przełącza listę na
+  „Własna maska”.
 - **`showThresholdParams()`** – po wyborze metody w zakładce „Metody” buduje
   pola jej parametrów (`UI.createParamFields`) i pokazuje krótki opis wzoru
   (`THRESHOLD_HINTS`).
@@ -1120,6 +1132,12 @@ moduły, trzyma stan dokumentu i obsługuje przyciski.
 | „Spłaszcz kształty” | wtapia kształty w obraz (`composite`), lista kształtów pusta |
 | „Cofnij” | zdejmuje ostatni stan ze stosu i przywraca go |
 | „Przywróć oryginał” | wraca do obrazu po wczytaniu, bez kształtów (też można cofnąć) |
+| lista „Gotowa maska” (Splot) | `loadPreset` – wstawia maskę do pola tekstowego |
+| „Zastosuj splot” | `Convolution.convolve` z maską z pola, dzielnikiem, stałą i opcją wartości bezwzględnej |
+| „Zastosuj medianę” (Efekty) | `Filters.medianFilter` z maską szer. × wys. |
+| „Pikselizuj” | `Filters.pixelate` z blokiem szer. × wys. |
+| „Zastosuj” – Kuwahara | `Filters.kuwahara` z oknem z pola |
+| „Predator” | `Filters.predator` z rozmiarem piksela i siłą |
 | „Binaryzuj” (Metody) | `Thresholding.binarize` wybraną metodą z parametrami z pól; status pokazuje parametry lub wyznaczony próg |
 | „Zastosuj” – uśredniający / medianowy | `Filters.meanFilter` / `Filters.medianFilter` z oknem z pola |
 | „Zastosuj” – Sobel | `Filters.sobel` w trybie \|G\|, Gx albo Gy |
@@ -1173,8 +1191,19 @@ jednej liczby na piksel; `fromGray` zamienia ją z powrotem na obraz
   tak samo szybko jak 3×3).
 - Działa na każdym kanale R, G, B osobno.
 
-#### `medianFilter(src, { size })` – filtr medianowy
+#### `windowExtent(n)`
 
+Dla okna o długości n zwraca, ile pól leży przed pikselem (na lewo / w górę),
+a ile za nim. Dla n nieparzystego okno jest symetryczne (5 → 2 + piksel + 2),
+a dla parzystego przesunięte o pół piksela (4 → 1 + piksel + 2). Dzięki temu
+mediana działa z maską o dowolnych wymiarach.
+
+#### `medianFilter(src, { size } | { width, height })` – filtr medianowy
+
+- **Rozmiar maski:** `size` daje okno kwadratowe, a `width` i `height` –
+  prostokątne o **dowolnych** wymiarach (1–51, także parzystych). Np. 9×1 usuwa
+  zakłócenia tylko w poziomie. Przy parzystej liczbie pól są dwie wartości
+  środkowe – bierzemy górną.
 - **Co robi:** każdy piksel zastępuje **medianą** z okna – wartością środkową
   po posortowaniu. Np. dla wartości 10, 12, 11, 255, 13 mediana to 12.
 - **Po co:** świetnie usuwa szum typu „sól i pieprz” (pojedyncze białe i czarne
@@ -1188,7 +1217,8 @@ jednej liczby na piksel; `fromGray` zamienia ją z powrotem na obraz
   mniejszych od `med`. Mediana to taka wartość, przed którą jest mniej niż
   połowa elementów, a razem z nią – więcej niż połowa. Po każdym przesunięciu
   wskaźnik przesuwa się tylko o kilka pozycji w górę lub w dół.
-- **Koszt:** ok. 2·size operacji na piksel zamiast sortowania size² liczb.
+- **Koszt:** ok. 2·wysokość okna operacji na piksel zamiast sortowania
+  wszystkich wartości okna.
 
 #### `sobel(src, { mode })` – wykrywanie krawędzi
 
@@ -1210,6 +1240,64 @@ jednej liczby na piksel; `fromGray` zamienia ją z powrotem na obraz
 - **Siła krawędzi:** |G| = √(Gx² + Gy²), przycięta do 0–255.
 - `mode`: `'magnitude'` – |G|, `'x'` – |Gx|, `'y'` – |Gy|.
 - Działa na obrazie szarości; wynik jest szary: czarne tło, jasne krawędzie.
+
+#### `pixelate(src, { blockW, blockH })` – pikselizacja
+
+- **Co robi:** dzieli obraz na prostokątne bloki blockW × blockH (od lewego
+  górnego rogu) i każdy blok wypełnia **średnim kolorem** jego pikseli. Obraz
+  wygląda jak złożony z dużych kwadratów, jak w starych grach albo przy
+  ukrywaniu twarzy.
+- **Jak:** dwa przejścia po obrazie. W pierwszym sumujemy R, G, B w każdym bloku
+  i liczymy jego piksele. W drugim wpisujemy każdemu pikselowi średnią
+  jego bloku. Numer bloku dla piksela to `⌊y / blockH⌋ · liczba_bloków_w_wierszu
+  + ⌊x / blockW⌋`.
+- Bloki przy prawym i dolnym brzegu mogą być mniejsze – średnia liczy się
+  z faktycznej liczby pikseli.
+- **Koszt:** stały na piksel, niezależny od rozmiaru bloku.
+
+#### `kuwahara(src, { size })` – filtr Kuwahary
+
+- **Co robi:** wygładza obraz, ale **zachowuje krawędzie** (efekt obrazu
+  malowanego farbą olejną). Zwykłe rozmycie rozmazuje krawędź, bo uśrednia piksele
+  z obu jej stron. Kuwahara bierze średnią tylko z „jednej strony”.
+- **Jak:** okno size × size wokół piksela (size = 2r + 1) dzielimy na 4 nakładające
+  się kwadraty (r + 1) × (r + 1): lewy górny, prawy górny, lewy dolny, prawy
+  dolny. Każdy zawiera piksel środkowy. Dla każdego kwadratu liczymy średnią
+  i **wariancję jasności** (jak bardzo piksele się różnią). Wynik to średni
+  kolor kwadratu o **najmniejszej wariancji**, czyli najbardziej jednolitego.
+- **Dlaczego zachowuje krawędzie:** kwadrat leżący w poprzek krawędzi zawiera
+  piksele jasne i ciemne, więc ma dużą wariancję i nie zostanie wybrany.
+  Wygrywa kwadrat leżący w całości po jednej stronie.
+- **Szybkość:** pięć **obrazów całkowych** (sumy R, G, B, jasności i kwadratów
+  jasności). Sumę dowolnego prostokąta liczymy z 4 odczytów (zob. `localStats`
+  w `thresholding.js`), więc koszt nie zależy od rozmiaru okna.
+
+#### `minRgb(src)` – MinRGB
+
+W każdym pikselu zostaje tylko kanał o **najmniejszej** wartości, a pozostałe są
+zerowane: (200, 50, 120) → (0, 50, 0). Przy remisie zostają wszystkie
+najmniejsze kanały, więc szary piksel się nie zmienia. W GIMP-ie to filtr
+„Maximum RGB” w trybie minimum. Efekt: obraz złożony z czystych, ciemnych
+barw – czerwonej, zielonej lub niebieskiej.
+
+#### `sobelRgb(src, { amount })`
+
+Operator Sobela (maski jak w `sobel`) policzony **osobno dla każdego kanału**
+R, G, B, więc krawędzie zostają kolorowe. Siła krawędzi jest mnożona przez
+`amount` i przycinana do 255.
+
+#### `predator(src, { pixelSize, amount })` – filtr Predatora
+
+Efekt „widzenia termowizyjnego” z filmu „Predator” (skrypt z GIMP-a). Trzy
+kroki nałożone na siebie w tej kolejności:
+1. **pikselizacja** (bloki pixelSize × pixelSize) – upraszcza obraz do dużych plam
+   koloru (pixelSize = 1 pomija ten krok),
+2. **MinRGB** – plamy dostają czyste barwy (zostaje tylko najsłabszy kanał),
+3. **Sobel na każdym kanale** – zostają świecące, kolorowe krawędzie plam na
+   czarnym tle, wzmocnione `amount` razy.
+
+Kolejność ma znaczenie: pikselizacja przed Sobelem daje „schodkowe”, grube
+kontury, a MinRGB przed Sobelem sprawia, że krawędzie mają czyste kolory.
 
 #### `createStructuringElement(width, height, shape)`
 
@@ -1402,6 +1490,85 @@ Moduł: `BioEditor.StructuringElementEditor`. Panel w zakładce „Morfologia”
 - Zwraca obiekt z polem `element` – **kopią** aktualnego elementu, przekazywaną
   do `Filters.morphology`.
 
+---
+
+### 4.15. `convolution.js` – filtry splotowe
+
+Moduł: `BioEditor.Convolution`. Biometria, zadanie 4.
+
+**Splot (konwolucja)** to najogólniejszy filtr liniowy. Każdy piksel wyniku jest
+**ważoną sumą** sąsiadów, a wagi zapisane są w małej tabeli – **masce** (jądrze,
+ang. *kernel*):
+
+```
+wynik(x, y) = Σ_i Σ_j  K(i, j) · I(x − i, y − j)  /  dzielnik  +  stała
+```
+
+(i, j) przebiega pola maski liczone od jej środka. Ten sam kod daje zupełnie
+różne filtry – zmieniają się tylko liczby w masce:
+
+| Maska | Wagi | Efekt |
+|-------|------|-------|
+| uśredniająca | wszystkie 1 | rozmycie |
+| Gaussa | „dzwon”: duże w środku, małe na brzegach | łagodne, naturalne rozmycie |
+| Prewitt, Sobel | ujemne z jednej strony, dodatnie z drugiej (suma 0) | krawędzie pionowe / poziome |
+| Laplasjan | duży ujemny środek, dodatnie otoczenie (suma 0) | krawędzie we wszystkich kierunkach |
+| wyostrzanie | duży dodatni środek, ujemne otoczenie (suma 1) | ostrzejsze szczegóły |
+
+**Dlaczego „x − i”, a nie „x + i”?** To odwrócenie maski odróżnia splot od
+**korelacji**. Dla masek symetrycznych (Gauss, Laplasjan) wynik jest taki sam,
+a dla Sobela i Prewitta zmienia się tylko znak. Przy włączonej wartości
+bezwzględnej nie ma więc różnicy.
+
+**Maski o sumie 0** (detektory krawędzi) dają w jednolitych obszarach 0 (czerń),
+a na krawędziach wartości dodatnie albo ujemne, zależnie od kierunku zmiany.
+Dlatego dla nich włączamy **wartość bezwzględną**: obie strony krawędzi są
+wtedy jasne. Można też zamiast tego dodać **stałą** 128, żeby zero wyglądało
+jak szarość.
+
+#### `makeKernel(rows)` i `kernelSum(kernel)`
+
+`makeKernel` zamienia tablicę wierszy (np. `[[0,1,0],[1,-4,1],[0,1,0]]`) na obiekt
+`{ width, height, data }`. `kernelSum` liczy sumę wag – domyślny dzielnik. Dzięki
+niemu rozmycie nie zmienia średniej jasności obrazu.
+
+#### `convolve(src, { kernel, divisor, offset, absolute })` – splot
+
+- **Dzielnik:** domyślnie suma wag; gdy suma wynosi 0 (detektory krawędzi) – 1.
+- **Optymalizacja 1:** najpierw zbieramy listę **niezerowych** wag z ich
+  przesunięciem. Laplasjan „+” 3×3 kosztuje wtedy 5 mnożeń na piksel zamiast 9.
+- **Optymalizacja 2:** dla pikseli, wokół których cała maska mieści się
+  w obrazie, nie sprawdzamy granic. Przycinanie współrzędnych jest tylko przy
+  brzegu, gdzie brakującego sąsiada zastępuje najbliższy piksel brzegowy.
+- Działa na kanałach R, G, B osobno. Wynik jest automatycznie przycinany do
+  0–255 przez `Uint8ClampedArray`.
+- **Maska może być dowolna:** prostokątna i parzysta też. Jej środek to pole
+  (⌊(w−1)/2⌋, ⌊(h−1)/2⌋).
+- **Koszt:** W·H·(liczba niezerowych wag). Duże maski są więc wolniejsze –
+  Gauss 15×15 to 225 mnożeń na piksel.
+
+#### `gaussianKernel(size, sigma)`
+
+Maska Gaussa: `G(x, y) = e^(−(x² + y²) / (2σ²))`, gdzie (x, y) to odległość od
+środka. σ (sigma) decyduje, jak szybko wagi maleją, czyli jak mocne jest
+rozmycie. Stałą normalizującą pomijamy, bo i tak dzielimy przez sumę wag.
+Rozsądny rozmiar maski to ok. 6σ – dalej wagi są praktycznie zerowe. Wagi
+zaokrąglamy do 4 miejsc po przecinku, żeby były czytelne w polu tekstowym.
+
+#### `PRESETS` (stała)
+
+Gotowe maski z nazwą do listy: uśredniająca, Gauss, Prewitt X i Y, Sobel X i Y,
+Laplasjan dla 4- i 8-sąsiedztwa, Laplasjan Gaussa (LoG) 5×5, wyostrzanie,
+płaskorzeźba. Detektory krawędzi mają `absolute: true`, a Gauss `gaussian: true`
+(interfejs pokazuje wtedy pola rozmiaru i σ).
+
+#### `formatKernel(rows)` i `parseKernel(text)`
+
+Zamiana maski na tekst i z powrotem. W tekście wiersze są w osobnych liniach,
+a wagi rozdziela się spacjami, przecinkami lub średnikami; ułamki można wpisać
+jako `1/16`. `parseKernel` sprawdza, czy wszystkie wiersze mają tyle samo wag
+i czy maska nie przekracza 51×51. Zwraca `{ kernel }` albo `{ error }`
+z opisem po polsku, np. „Wiersz 2 ma 1 wag, a pierwszy 2.”.
 
 ---
 
@@ -1501,10 +1668,34 @@ Moduł: `BioEditor.StructuringElementEditor`. Panel w zakładce „Morfologia”
    T = m·(1 + k·(s/R − 1)) → biały, gdy v ≥ T.
 3. Status: „Sauvola (lokalna) (window=15, k=0.5, R=128): 33 ms”.
 
+### 5.11. Splot z maską Laplasjanu
+
+1. Zakładka „Splot”, z listy „Laplasjan (8-sąsiedztwo)” → `loadPreset` wpisuje
+   maskę `1 1 1 / 1 -8 1 / 1 1 1` i zaznacza „Wartość bezwzględna”.
+   Pod polem: „Maska 3×3, suma wag 0, dzielnik auto = 1”.
+2. „Zastosuj splot” → `parseKernel` → `Convolution.convolve`: dla każdego piksela
+   suma (8 sąsiadów − 8 × środek), wartość bezwzględna.
+3. Jednolite obszary dają 0 (czerń), krawędzie są jasne.
+
+### 5.12. Filtr Predatora
+
+1. Zakładka „Efekty”, piksel 4, siła 2, klik „Predator”.
+2. `Filters.predator` → `pixelate` (bloki 4×4) → `minRgb` → `sobelRgb` × 2.
+3. Wynik: kolorowe, „schodkowe” kontury na czarnym tle; status:
+   „filtr Predatora (piksel 4, siła 2): 44 ms”.
+
 ## 6. Słowniczek pojęć
 
 | Pojęcie | Wyjaśnienie |
 |---------|-------------|
+| **Splot (konwolucja)** | Filtr liniowy: piksel = ważona suma sąsiadów, wagi w masce. |
+| **Maska (jądro, kernel)** | Mała tabela wag używana w splocie. |
+| **Rozmycie Gaussa** | Splot z maską o wagach w kształcie „dzwonu” (rozkład normalny). |
+| **Laplasjan** | Maska przybliżająca drugą pochodną – wykrywa krawędzie we wszystkich kierunkach. |
+| **Pikselizacja** | Zastąpienie bloków pikseli ich średnim kolorem. |
+| **Filtr Kuwahary** | Wygładzanie zachowujące krawędzie: średnia z najbardziej jednolitego z 4 kwadratów. |
+| **Wariancja** | Średni kwadrat odchylenia od średniej – miara zróżnicowania wartości. |
+| **MinRGB** | Pozostawienie w pikselu tylko kanału o najmniejszej wartości. |
 | **Filtr (sąsiedztwa)** | Przekształcenie, w którym nowy piksel zależy od okna pikseli wokół niego. |
 | **Okno** | Kwadrat k × k pikseli wokół przetwarzanego piksela (k nieparzyste, żeby miał środek). |
 | **Mediana** | Wartość środkowa po posortowaniu. |
